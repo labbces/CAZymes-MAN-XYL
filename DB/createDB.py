@@ -1,9 +1,5 @@
+
 #create connection object to postgresql database using sqlalchemy
-from warnings import resetwarnings
-from sqlalchemy.sql.expression import select
-from sqlalchemy.sql.operators import startswith_op
-
-
 def connectDB():
     import sqlalchemy
     from sqlalchemy import create_engine

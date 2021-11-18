@@ -20,7 +20,7 @@ sudo mv /var/lib/mysql/ /var/lib/mysql.bak
 Edit the file /etc/mysql/my.cnf, setting datadir and tmpdir to:
 datadir         = /data/mysql
 tmpdir          = /data/tmp
-
+Comment the bind_address line to be able to connect from the internet.
 
 sudo mysql_secure_installation
 The password for the root user in Diego's bitwarden.

@@ -4,12 +4,12 @@ def connectDB():
     import sqlalchemy
     from sqlalchemy import create_engine
     #connect to postgresql database
-    db_user = 'cazymes'
-    db_password = 'cazymes'
-    db_name = 'cazymes'
-    db_host = 'localhost'
-    db_port =  5432
-    db_url = 'postgresql://{}:{}@{}:{}/{}'.format(db_user,db_password,db_host,db_port,db_name)
+    db_user = 'xylman'
+    db_password = 'pert8cask7'
+    db_name = 'xylman'
+    db_host = '200.144.245.42'
+    db_port =  3306
+    db_url = 'mariadb+pymysql://{}:{}@{}:{}/{}'.format(db_user,db_password,db_host,db_port,db_name)
     engine = create_engine(db_url)
     return engine
 
@@ -24,30 +24,55 @@ def createDB():
     class Taxonomy(Base):
         __tablename__ = 'Taxonomy'
         #id = Column(Integer, primary_key=True)
-        TaxID = Column(Integer)
-        TaxIDRank = Column(Integer)
-        RankName = Column(String)
-        TaxName = Column(String)
+        ParentTaxID = Column(Integer, nullable=True)
+        TaxID = Column(Integer, primary_key=True)
+        #TaxIDRank = Column(Integer)
+        RankName = Column(String(255))
+        TaxName = Column(String(255))
         __table_args__ = (
-            PrimaryKeyConstraint(TaxID, TaxIDRank),{},
-        #    ForeignKeyConstraint(['TaxID'], ['Taxonomy.TaxID']),
-            )
+            PrimaryKeyConstraint(TaxID),
+            {'mariadb_engine':'InnoDB'},
+        )
 
     class Genome(Base):
         __tablename__ = 'Genomes'
-        #__table_args__ = (
-        #    ForeignKeyConstraint(['TaxID'], ['Taxonomy.TaxID']),
-        #    )
-        AssemblyAccession = Column(String, primary_key=True)
+        __table_args__ = (
+            ForeignKeyConstraint(['TaxID'], ['Taxonomy.TaxID']),
+            {'mariadb_engine':'InnoDB'},
+                    )
+        AssemblyAccession = Column(String(100), primary_key=True)
         TaxID = Column(Integer)
-        urlBase = Column(String)
+        urlBase = Column(String(255))
+
+    class GenomeFile(Base):
+        __tablename__ = 'GenomeFiles'
+        AssemblyAccession = Column(String(100))
+        FileType = Column(String(100))
+        FileName = Column(String(255))
+        __table_args__ = (
+            ForeignKeyConstraint(['AssemblyAccession'], ['Genomes.AssemblyAccession']),
+            PrimaryKeyConstraint(FileType, AssemblyAccession),
+            {'mariadb_engine':'InnoDB'},
+                    )
     
-        
+    # class Genome2Taxonomy(Base):
+    #     __tablename__ = 'Genome2Taxonomy'
+    #     AssemblyAccession = Column(String(100))
+    #     TaxID = Column(Integer)
+    #     __table_args__ = (
+    #         PrimaryKeyConstraint(TaxID, AssemblyAccession),
+    #         ForeignKeyConstraint(['TaxID'], ['Taxonomy.TaxID']),
+    #         ForeignKeyConstraint(['AssemblyAccession'], ['Genomes.AssemblyAccession']),
+    #     #    {'mariadb_engine':'InnoDB'},
+    #         )
+
     Base.metadata.create_all(engine)
 
 #Populate Genomes table with data from NCBI genomes
 def populateGenomes(url):
+    
     engine = connectDB()
+
     from sqlalchemy.orm import sessionmaker
     from sqlalchemy import select
     from sqlalchemy.ext.automap import automap_base
@@ -66,6 +91,7 @@ def populateGenomes(url):
     
     Genome = Base.classes.Genomes
     Taxonomy = Base.classes.Taxonomy
+    GenomeFile = Base.classes.GenomeFiles
 
     #get the data from the NCBI genomes and add to tables
     for line in urllib.request.urlopen(url):
@@ -84,17 +110,24 @@ def populateGenomes(url):
             targetGroups={4751,2157,2}
             if targetGroups.intersection(set(lineage)):
                 counter+=1
-                for i in ncbi.get_lineage(fields[1]):
+                # print(lineage)
+                for index, i in enumerate(ncbi.get_lineage(fields[1])):
+                    checkTaxID=select([Taxonomy]).where(Taxonomy.TaxID==i)
+                    resultCheckTaxID = session.execute(checkTaxID)
                     if i == 1:
-                        continue    
-                    else:  
-                        checkPair=select([Taxonomy]).where(Taxonomy.TaxID==fields[1]).where(Taxonomy.TaxIDRank==i)
-                        resultCheckPair = session.execute(checkPair)
-                        if resultCheckPair.fetchone() is None:
+                        #Check whether the taxonomy info is alreeady in the DB. If not, add it
+                        if resultCheckTaxID.fetchone() is None:
                             taxid2name = ncbi.get_taxid_translator([i])
                             rank = ncbi.get_rank([i])
-                            #print(f'{taxid2name[i]}\t{rank[i]}')
-                            session.add(Taxonomy(TaxID=fields[1], TaxIDRank=i, RankName=rank[i], TaxName=taxid2name[i]))
+                            # print(f'{index}\t{i}\t{lineage[index-1]}\t{lineage[index]}\t{taxid2name[i]}\t{rank[i]}')
+                            session.add(Taxonomy(TaxID=i, RankName=rank[i], TaxName=taxid2name[i]))
+                    else:
+                        #Check whether the taxonomy info is alreeady in the DB. If not, add it
+                        if resultCheckTaxID.fetchone() is None:
+                            taxid2name = ncbi.get_taxid_translator([i])
+                            rank = ncbi.get_rank([i])
+                            # print(f'{index}\t{i}\t{lineage[index-1]}\t{lineage[index]}\t{taxid2name[i]}\t{rank[i]}')
+                            session.add(Taxonomy(ParentTaxID=lineage[index-1], TaxID=i, RankName=rank[i], TaxName=taxid2name[i]))
                 checkGenome=select([Genome]).where(Genome.AssemblyAccession==fields[8])
                 resultCheckGenome = session.execute(checkGenome)
                 if resultCheckGenome.fetchone() is None:
@@ -108,8 +141,20 @@ def populateGenomes(url):
                         for asm in ftp.nlst():
                             if asm.startswith(fields[8]):
                                 url=f'https://ftp.ncbi.nlm.nih.gov/genomes/all/{acc[0:3]}/{acc[4:7]}/{acc[7:10]}/{acc[10:13]}/{asm}'
-                                print(f'{acc}\t{ver}\t{asm}\t{url}')
+                                # print(f'{acc}\t{ver}\t{asm}\t{url}')
                                 session.add(Genome(AssemblyAccession=fields[8], TaxID=fields[1], urlBase=url))
+                                ftp.cwd(asm)
+                                for file in ftp.nlst():
+                                    if file.endswith(asm + '_genomic.fna.gz'):
+                                        session.add(GenomeFile(AssemblyAccession=fields[8], FileType='Genome sequence', FileName=file))
+                                    elif file.endswith(asm + '_protein.faa.gz'):
+                                        session.add(GenomeFile(AssemblyAccession=fields[8], FileType='Protein sequence', FileName=file))
+                                    elif file.endswith(asm + '_genomic.gff.gz'):
+                                        session.add(GenomeFile(AssemblyAccession=fields[8], FileType='Genome annotation', FileName=file))
+                                    elif file.endswith(asm + '_translated_cds.faa.gz'):
+                                        session.add(GenomeFile(AssemblyAccession=fields[8], FileType='Protein sequence alter', FileName=file))
+
+                                    print(file)
                         ftp.quit()
     #commit the changes
     session.commit()
@@ -118,3 +163,4 @@ def populateGenomes(url):
 
 createDB()
 populateGenomes('https://ftp.ncbi.nlm.nih.gov/genomes/GENOME_REPORTS/eukaryotes.txt')
+# populateGenomes('https://ftp.ncbi.nlm.nih.gov/genomes/GENOME_REPORTS/prokaryotes.txt')

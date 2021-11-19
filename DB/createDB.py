@@ -1,11 +1,11 @@
 
 #create connection object to postgresql database using sqlalchemy
-def connectDB():
+def connectDB(password=None):
     import sqlalchemy
     from sqlalchemy import create_engine
     #connect to postgresql database
     db_user = 'xylman'
-    db_password = 'pert8cask7'
+    db_password = password
     db_name = 'xylman'
     db_host = '200.144.245.42'
     db_port =  3306
@@ -14,8 +14,8 @@ def connectDB():
     return engine
 
 #Create database schema using sqlalchemy.orm
-def createDB():
-    engine = connectDB()
+def createDB(password=None):
+    engine = connectDB(password)
     from sqlalchemy.ext.declarative import declarative_base
     from sqlalchemy import Column, Integer, String, ForeignKeyConstraint, PrimaryKeyConstraint
     
@@ -69,9 +69,9 @@ def createDB():
     Base.metadata.create_all(engine)
 
 #Populate Genomes table with data from NCBI genomes
-def populateGenomes(url):
+def populateGenomes(url,password=None):
     
-    engine = connectDB()
+    engine = connectDB(password)
 
     from sqlalchemy.orm import sessionmaker
     from sqlalchemy import select
@@ -154,13 +154,17 @@ def populateGenomes(url):
                                     elif file.endswith(asm + '_translated_cds.faa.gz'):
                                         session.add(GenomeFile(AssemblyAccession=fields[8], FileType='Protein sequence alter', FileName=file))
 
-                                    print(file)
+                                    # print(file)
                         ftp.quit()
     #commit the changes
     session.commit()
     #close the session
     session.close()
 
-createDB()
-populateGenomes('https://ftp.ncbi.nlm.nih.gov/genomes/GENOME_REPORTS/eukaryotes.txt')
-# populateGenomes('https://ftp.ncbi.nlm.nih.gov/genomes/GENOME_REPORTS/prokaryotes.txt')
+import argparse
+parser= argparse.ArgumentParser(description='Download genomes from NCBI')
+parser.add_argument('password', metavar='password', type=str, help='password for the database')
+args= parser.parse_args()
+createDB(args.password)
+populateGenomes('https://ftp.ncbi.nlm.nih.gov/genomes/GENOME_REPORTS/eukaryotes.txt',args.password)
+# populateGenomes('https://ftp.ncbi.nlm.nih.gov/genomes/GENOME_REPORTS/prokaryotes.txt',args.password)

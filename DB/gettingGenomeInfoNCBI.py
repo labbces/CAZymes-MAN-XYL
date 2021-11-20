@@ -10,10 +10,10 @@ updateNCBITaxDB=False
 
 if(args.dropDB):
     dropDB(args.password)
+    createDB(args.password)
 
 if(args.updateNCBITaxDB):
     updateNCBITaxDB=True
 
-createDB(args.password)
 populateGenomes('https://ftp.ncbi.nlm.nih.gov/genomes/GENOME_REPORTS/eukaryotes.txt',args.password,updateNCBITaxDB)
 # populateGenomes('https://ftp.ncbi.nlm.nih.gov/genomes/GENOME_REPORTS/prokaryotes.txt',args.password)

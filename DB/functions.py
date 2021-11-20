@@ -119,21 +119,33 @@ def populateGenomes(url,password=None,updateNCBITaxDB=False):
             if line.startswith('#'):
                 continue
             else:
+                #If the genome info was already inserted skip it
+                checkGenome=select([Genome]).where(Genome.AssemblyAccession==fields[8])
+                resultCheckGenome = session.execute(checkGenome)
+                if resultCheckGenome.fetchone():
+                    print(f'Already saw {fields[8]}')
+                    continue
+                else:
+                    print(f'Processing {fields[8]}')
+
+                #Commit to the DB every 10 lines of the genome file
                 if counter % 10 == 0:
-                    #commit the changes, every 10 lines in the genomeFile
                     session.commit()
-                    time.sleep(4)
+
+                #If there is no taxonomy info for the genome, control the error and continue
                 try:
                     lineage = ncbi.get_lineage(int(fields[1]))
                 except:
-                    errorsLog.write(f'Missing TaxID from NCBI DB: {fields[1]} for assembly: {fields[8]}\n')
+                    errorsLog.write(f'Error: Missing TaxID from NCBI DB: {fields[1]} for assembly: {fields[8]}\n')
                     continue
                 #Only processes genomes with a taxonomy ID in fungi, archaea or bacteria
                 targetGroups={4751,2157,2}
                 if targetGroups.intersection(set(lineage)):
                     counter+=1
                     # print(lineage)
-                    for index, i in enumerate(ncbi.get_lineage(fields[1])):
+                    if(lineage[-1] != fields[1]):
+                        errorsLog.write(f'Warning: TaxID from genome file: {fields[1]} was translated to: {lineage[-1]} for assembly: {fields[8]}\n')
+                    for index, i in enumerate(lineage):
                         checkTaxID=select([Taxonomy]).where(Taxonomy.TaxID==i)
                         resultCheckTaxID = session.execute(checkTaxID)
                         if i == 1:
@@ -164,7 +176,9 @@ def populateGenomes(url,password=None,updateNCBITaxDB=False):
                                 if asm.startswith(fields[8]):
                                     url=f'https://ftp.ncbi.nlm.nih.gov/genomes/all/{acc[0:3]}/{acc[4:7]}/{acc[7:10]}/{acc[10:13]}/{asm}'
                                     # print(f'{acc}\t{ver}\t{asm}\t{url}')
-                                    session.add(Genome(AssemblyAccession=fields[8], TaxID=fields[1], urlBase=url))
+                                    #Sometimes the NCBI can update TaxIDs, i.e., translate the taxID. NCBITaxa deals with this, but to avoid foreigkey errors
+                                    #it is better to insert into the DB what NCBITaxa retrieved and not the TaxID in the genome file
+                                    session.add(Genome(AssemblyAccession=fields[8], TaxID=lineage[-1], urlBase=url))
                                     ftp.cwd(asm)
                                     for file in ftp.nlst():
                                         if file.endswith(asm + '_genomic.fna.gz'):
@@ -177,6 +191,7 @@ def populateGenomes(url,password=None,updateNCBITaxDB=False):
                                             session.add(GenomeFile(AssemblyAccession=fields[8], FileType='Protein sequence alter', FileName=file, FileSource='NCBI'))
                                         # print(file)
                             ftp.quit()
+                            time.sleep(3)#Wait to avoid being banned by NCBI
     #commit the changes
     session.commit()
     #close the session

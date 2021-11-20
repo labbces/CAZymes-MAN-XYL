@@ -6,3 +6,4 @@ taxa.tab
 DB/__pycache__/functions.cpython-39.pyc
 genomes.txt
 populateErrors.log
+DB/xylman.cnf

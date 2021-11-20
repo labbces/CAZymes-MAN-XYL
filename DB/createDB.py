@@ -1,170 +1,19 @@
-
-#create connection object to postgresql database using sqlalchemy
-def connectDB(password=None):
-    import sqlalchemy
-    from sqlalchemy import create_engine
-    #connect to postgresql database
-    db_user = 'xylman'
-    db_password = password
-    db_name = 'xylman'
-    db_host = '200.144.245.42'
-    db_port =  3306
-    db_url = 'mariadb+pymysql://{}:{}@{}:{}/{}'.format(db_user,db_password,db_host,db_port,db_name)
-    engine = create_engine(db_url)
-    return engine
-
-#Create database schema using sqlalchemy.orm
-def createDB(password=None):
-    engine = connectDB(password)
-    from sqlalchemy.ext.declarative import declarative_base
-    from sqlalchemy import Column, Integer, String, ForeignKeyConstraint, PrimaryKeyConstraint
-    
-    #create a table
-    Base = declarative_base()
-    class Taxonomy(Base):
-        __tablename__ = 'Taxonomy'
-        #id = Column(Integer, primary_key=True)
-        ParentTaxID = Column(Integer, nullable=True)
-        TaxID = Column(Integer, primary_key=True)
-        #TaxIDRank = Column(Integer)
-        RankName = Column(String(255))
-        TaxName = Column(String(255))
-        __table_args__ = (
-            PrimaryKeyConstraint(TaxID),
-            {'mariadb_engine':'InnoDB'},
-        )
-
-    class Genome(Base):
-        __tablename__ = 'Genomes'
-        __table_args__ = (
-            ForeignKeyConstraint(['TaxID'], ['Taxonomy.TaxID']),
-            {'mariadb_engine':'InnoDB'},
-                    )
-        AssemblyAccession = Column(String(100), primary_key=True)
-        TaxID = Column(Integer)
-        urlBase = Column(String(255))
-
-    class GenomeFile(Base):
-        __tablename__ = 'GenomeFiles'
-        AssemblyAccession = Column(String(100))
-        FileType = Column(String(100))
-        FileName = Column(String(255))
-        __table_args__ = (
-            ForeignKeyConstraint(['AssemblyAccession'], ['Genomes.AssemblyAccession']),
-            PrimaryKeyConstraint(FileType, AssemblyAccession),
-            {'mariadb_engine':'InnoDB'},
-                    )
-    
-    # class Genome2Taxonomy(Base):
-    #     __tablename__ = 'Genome2Taxonomy'
-    #     AssemblyAccession = Column(String(100))
-    #     TaxID = Column(Integer)
-    #     __table_args__ = (
-    #         PrimaryKeyConstraint(TaxID, AssemblyAccession),
-    #         ForeignKeyConstraint(['TaxID'], ['Taxonomy.TaxID']),
-    #         ForeignKeyConstraint(['AssemblyAccession'], ['Genomes.AssemblyAccession']),
-    #     #    {'mariadb_engine':'InnoDB'},
-    #         )
-
-    Base.metadata.create_all(engine)
-
-#Populate Genomes table with data from NCBI genomes
-def populateGenomes(url,password=None):
-    
-    engine = connectDB(password)
-
-    from sqlalchemy.orm import sessionmaker
-    from sqlalchemy import select
-    from sqlalchemy.ext.automap import automap_base
-    from ete3 import NCBITaxa
-    import urllib.request
-    import ftplib
-    import time
-
-    ncbi = NCBITaxa()
-    counter=0
-    #create a session
-    Base = automap_base()
-    Base.prepare(engine, reflect=True)
-    Session = sessionmaker(bind=engine)
-    session = Session()
-    
-    Genome = Base.classes.Genomes
-    Taxonomy = Base.classes.Taxonomy
-    GenomeFile = Base.classes.GenomeFiles
-
-    #get the data from the NCBI genomes and add to tables
-    for line in urllib.request.urlopen(url):
-        line = line.decode('utf-8')
-        line = line.rstrip()
-        fields = line.split('\t')
-        if line.startswith('#'):
-            continue
-        else:
-            if counter % 10 == 0:
-                #commit the changes
-                session.commit()
-                time.sleep(4)
-            lineage = ncbi.get_lineage(int(fields[1]))
-            #Only processes genomes with a taxonomy ID in fungi, archaea or bacteria
-            targetGroups={4751,2157,2}
-            if targetGroups.intersection(set(lineage)):
-                counter+=1
-                # print(lineage)
-                for index, i in enumerate(ncbi.get_lineage(fields[1])):
-                    checkTaxID=select([Taxonomy]).where(Taxonomy.TaxID==i)
-                    resultCheckTaxID = session.execute(checkTaxID)
-                    if i == 1:
-                        #Check whether the taxonomy info is alreeady in the DB. If not, add it
-                        if resultCheckTaxID.fetchone() is None:
-                            taxid2name = ncbi.get_taxid_translator([i])
-                            rank = ncbi.get_rank([i])
-                            # print(f'{index}\t{i}\t{lineage[index-1]}\t{lineage[index]}\t{taxid2name[i]}\t{rank[i]}')
-                            session.add(Taxonomy(TaxID=i, RankName=rank[i], TaxName=taxid2name[i]))
-                    else:
-                        #Check whether the taxonomy info is alreeady in the DB. If not, add it
-                        if resultCheckTaxID.fetchone() is None:
-                            taxid2name = ncbi.get_taxid_translator([i])
-                            rank = ncbi.get_rank([i])
-                            # print(f'{index}\t{i}\t{lineage[index-1]}\t{lineage[index]}\t{taxid2name[i]}\t{rank[i]}')
-                            session.add(Taxonomy(ParentTaxID=lineage[index-1], TaxID=i, RankName=rank[i], TaxName=taxid2name[i]))
-                checkGenome=select([Genome]).where(Genome.AssemblyAccession==fields[8])
-                resultCheckGenome = session.execute(checkGenome)
-                if resultCheckGenome.fetchone() is None:
-                    acc,ver=fields[8].split('.')
-                    if len(acc) == 13:
-                        FTP_USER = "anonymous"
-                        FTP_PASS = ""
-                        FTP_HOST = "ftp.ncbi.nlm.nih.gov"
-                        ftp = ftplib.FTP(FTP_HOST, FTP_USER, FTP_PASS)
-                        ftp.cwd(f'genomes/all/{acc[0:3]}/{acc[4:7]}/{acc[7:10]}/{acc[10:13]}/')
-                        for asm in ftp.nlst():
-                            if asm.startswith(fields[8]):
-                                url=f'https://ftp.ncbi.nlm.nih.gov/genomes/all/{acc[0:3]}/{acc[4:7]}/{acc[7:10]}/{acc[10:13]}/{asm}'
-                                # print(f'{acc}\t{ver}\t{asm}\t{url}')
-                                session.add(Genome(AssemblyAccession=fields[8], TaxID=fields[1], urlBase=url))
-                                ftp.cwd(asm)
-                                for file in ftp.nlst():
-                                    if file.endswith(asm + '_genomic.fna.gz'):
-                                        session.add(GenomeFile(AssemblyAccession=fields[8], FileType='Genome sequence', FileName=file))
-                                    elif file.endswith(asm + '_protein.faa.gz'):
-                                        session.add(GenomeFile(AssemblyAccession=fields[8], FileType='Protein sequence', FileName=file))
-                                    elif file.endswith(asm + '_genomic.gff.gz'):
-                                        session.add(GenomeFile(AssemblyAccession=fields[8], FileType='Genome annotation', FileName=file))
-                                    elif file.endswith(asm + '_translated_cds.faa.gz'):
-                                        session.add(GenomeFile(AssemblyAccession=fields[8], FileType='Protein sequence alter', FileName=file))
-
-                                    # print(file)
-                        ftp.quit()
-    #commit the changes
-    session.commit()
-    #close the session
-    session.close()
-
+from functions import *
 import argparse
 parser= argparse.ArgumentParser(description='Download genomes from NCBI')
-parser.add_argument('password', metavar='password', type=str, help='password for the database')
+parser.add_argument('--password', metavar='password', type=str, help='password for the database')
+parser.add_argument('--dropDB', dest='dropDB', help='drop the database', default=False, action='store_true')
+parser.add_argument('--updateNCBITaxDB', dest='updateNCBITaxDB', help='Update NCBI\'s taxonomy database', default=False, action='store_true')
 args= parser.parse_args()
+
+updateNCBITaxDB=False
+
+if(args.dropDB):
+    dropDB(args.password)
+
+if(args.updateNCBITaxDB):
+    updateNCBITaxDB=True
+
 createDB(args.password)
-populateGenomes('https://ftp.ncbi.nlm.nih.gov/genomes/GENOME_REPORTS/eukaryotes.txt',args.password)
+populateGenomes('https://ftp.ncbi.nlm.nih.gov/genomes/GENOME_REPORTS/eukaryotes.txt',args.password,updateNCBITaxDB)
 # populateGenomes('https://ftp.ncbi.nlm.nih.gov/genomes/GENOME_REPORTS/prokaryotes.txt',args.password)

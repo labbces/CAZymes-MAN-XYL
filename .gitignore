@@ -3,3 +3,6 @@ taxdump.tar.gz
 merged.tab
 syn.tab
 taxa.tab
+DB/__pycache__/functions.cpython-39.pyc
+genomes.txt
+populateErrors.log

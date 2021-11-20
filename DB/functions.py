@@ -1,4 +1,4 @@
-#Fucntions for XYLMAN project
+#Functions for XYLMAN project
 
 
 #create connection object to mysql/mariadb database using sqlalchemy

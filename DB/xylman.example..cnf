@@ -1,0 +1,6 @@
+[xylman]
+database=xylman
+user=xylman
+password=<your password>
+host=<your hostname/IP>
+port=3306

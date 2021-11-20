@@ -1,0 +1,26 @@
+---
+title: "XylMan - Analyses of Number of Genomes Dowloaded"
+output:
+  html_document:
+    df_print: paged
+---
+
+We have been downloading genomes from Fungi, Bacteria and Archaea from NCBI.
+
+This document just shows a summary of what we have downloaded so far.
+
+All the genome info (not the sequence data so far) had been stores in a MariaDB database.
+ 
+
+```{r}
+library(RMariaDB)
+setwd("D:/GitHub/CAZymes-MAN-XYL/")
+con<-dbConnect(RMariaDB::MariaDB(),groups="xylman",default.file='DB/xylman.cnf')
+dbListTables(con)
+```
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.

@@ -81,8 +81,8 @@ def dropDB(password=None):
 
 
 #Populate Genomes table with data from NCBI genomes
-def populateGenomes(url,password=None,updateNCBITaxDB=False):
-    
+def populateGenomes(url,password=None,updateNCBITaxDB=False,typeOrg='euk'):
+    #print(f'{typeOrg} {updateNCBITaxDB}')
     engine = connectDB(password)
 
     from sqlalchemy.orm import sessionmaker
@@ -95,9 +95,14 @@ def populateGenomes(url,password=None,updateNCBITaxDB=False):
 
     ncbi = NCBITaxa()
     
-    if updateNCBITaxDB:
+    if updateNCBITaxDB:#TODO. This is not working. Check it.
         ncbi.update_taxonomy_database()
     
+    if typeOrg == 'euk':
+        assemblyAccessionIndex=8
+    else:
+        assemblyAccessionIndex=18
+
     counter=0
     #create a session
     Base = automap_base()
@@ -120,13 +125,13 @@ def populateGenomes(url,password=None,updateNCBITaxDB=False):
                 continue
             else:
                 #If the genome info was already inserted skip it
-                checkGenome=select([Genome]).where(Genome.AssemblyAccession==fields[8])
+                checkGenome=select([Genome]).where(Genome.AssemblyAccession==fields[assemblyAccessionIndex])
                 resultCheckGenome = session.execute(checkGenome)
                 if resultCheckGenome.fetchone():
-                    print(f'Already saw {fields[8]}')
+                    print(f'Already saw {fields[assemblyAccessionIndex]}')
                     continue
                 else:
-                    print(f'Checking {fields[8]}')
+                    print(f'Checking {fields[assemblyAccessionIndex]}')
 
                 #Commit to the DB every 10 lines of the genome file
                 if counter % 10 == 0:
@@ -136,15 +141,15 @@ def populateGenomes(url,password=None,updateNCBITaxDB=False):
                 try:
                     lineage = ncbi.get_lineage(int(fields[1]))
                 except:
-                    errorsLog.write(f'Error: Missing TaxID from NCBI DB: {fields[1]} for assembly: {fields[8]}\n')
+                    errorsLog.write(f'Error: Missing TaxID from NCBI DB: {fields[1]} for assembly: {fields[assemblyAccessionIndex]}\n')
                     continue
                 #Only processes genomes with a taxonomy ID in fungi, archaea or bacteria
                 targetGroups={4751,2157,2}
                 if targetGroups.intersection(set(lineage)):
                     counter+=1
-                    # print(lineage)
+                    print(f'\tAdding Genome Info for Assembly {fields[assemblyAccessionIndex]}')
                     if(lineage[-1] != fields[1]):
-                        errorsLog.write(f'Warning: TaxID from genome file: {fields[1]} was translated to: {lineage[-1]} for assembly: {fields[8]}\n')
+                        errorsLog.write(f'Warning: TaxID from genome file: {fields[1]} was translated to: {lineage[-1]} for assembly: {fields[assemblyAccessionIndex]}\n')
                     for index, i in enumerate(lineage):
                         checkTaxID=select([Taxonomy]).where(Taxonomy.TaxID==i)
                         resultCheckTaxID = session.execute(checkTaxID)
@@ -163,10 +168,10 @@ def populateGenomes(url,password=None,updateNCBITaxDB=False):
                                 rank = ncbi.get_rank([i])
                                 # print(f'{index}\t{i}\t{lineage[index-1]}\t{lineage[index]}\t{taxid2name[i]}\t{rank[i]}')
                                 session.add(Taxonomy(ParentTaxID=lineage[index-1], TaxID=i, RankName=rank[i], TaxName=taxid2name[i]))
-                    checkGenome=select([Genome]).where(Genome.AssemblyAccession==fields[8])
+                    checkGenome=select([Genome]).where(Genome.AssemblyAccession==fields[assemblyAccessionIndex])
                     resultCheckGenome = session.execute(checkGenome)
                     if resultCheckGenome.fetchone() is None:
-                        acc,ver=fields[8].split('.')
+                        acc,ver=fields[assemblyAccessionIndex].split('.')
                         if len(acc) == 13:
                             FTP_USER = "anonymous"
                             FTP_PASS = ""
@@ -174,27 +179,27 @@ def populateGenomes(url,password=None,updateNCBITaxDB=False):
                             ftp = ftplib.FTP(FTP_HOST, FTP_USER, FTP_PASS)
                             ftp.cwd(f'genomes/all/{acc[0:3]}/{acc[4:7]}/{acc[7:10]}/{acc[10:13]}/')
                             for asm in ftp.nlst():
-                                if asm.startswith(fields[8]):
+                                if asm.startswith(fields[assemblyAccessionIndex]):
                                     url=f'https://ftp.ncbi.nlm.nih.gov/genomes/all/{acc[0:3]}/{acc[4:7]}/{acc[7:10]}/{acc[10:13]}/{asm}'
                                     # print(f'{acc}\t{ver}\t{asm}\t{url}')
                                     #Sometimes the NCBI can update TaxIDs, i.e., translate the taxID. NCBITaxa deals with this, but to avoid foreigkey errors
                                     #it is better to insert into the DB what NCBITaxa retrieved and not the TaxID in the genome file
-                                    session.add(Genome(AssemblyAccession=fields[8], TaxID=lineage[-1], urlBase=url))
+                                    session.add(Genome(AssemblyAccession=fields[assemblyAccessionIndex], TaxID=lineage[-1], urlBase=url))
                                     ftp.cwd(asm)
                                     for file in ftp.nlst():
                                         if file.endswith(asm + '_genomic.fna.gz'):
-                                            session.add(GenomeFile(AssemblyAccession=fields[8], FileType='Genome sequence', FileName=file, FileSource='NCBI'))
+                                            session.add(GenomeFile(AssemblyAccession=fields[assemblyAccessionIndex], FileType='Genome sequence', FileName=file, FileSource='NCBI'))
                                         elif file.endswith(asm + '_protein.faa.gz'):
-                                            session.add(GenomeFile(AssemblyAccession=fields[8], FileType='Protein sequence', FileName=file, FileSource='NCBI'))	
+                                            session.add(GenomeFile(AssemblyAccession=fields[assemblyAccessionIndex], FileType='Protein sequence', FileName=file, FileSource='NCBI'))	
                                         elif file.endswith(asm + '_genomic.gff.gz'):
-                                            session.add(GenomeFile(AssemblyAccession=fields[8], FileType='Genome annotation', FileName=file, FileSource='NCBI'))
+                                            session.add(GenomeFile(AssemblyAccession=fields[assemblyAccessionIndex], FileType='Genome annotation', FileName=file, FileSource='NCBI'))
                                         elif file.endswith(asm + '_translated_cds.faa.gz'):
-                                            session.add(GenomeFile(AssemblyAccession=fields[8], FileType='Protein sequence alter', FileName=file, FileSource='NCBI'))
+                                            session.add(GenomeFile(AssemblyAccession=fields[assemblyAccessionIndex], FileType='Protein sequence alter', FileName=file, FileSource='NCBI'))
                                         # print(file)
                             ftp.quit()
                             time.sleep(3)#Wait to avoid being banned by NCBI
                 else:
-                    print(f'\t{fields[8]} with TaxID: {fields[1]} is not in the target groups')
+                    print(f'\t{fields[assemblyAccessionIndex]} with TaxID: {fields[1]} is not in the target groups')
     #commit the changes
     session.commit()
     #close the session

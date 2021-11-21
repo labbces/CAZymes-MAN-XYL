@@ -111,7 +111,7 @@ def populateGenomes(url,password=None,updateNCBITaxDB=False):
 
     #get the data from the NCBI genomes and add to tables
     urllib.request.urlretrieve(url,'genomes.txt')
-    with open('genomes.txt', 'r') as genomeFile, open('populateErrors.log','w') as errorsLog:
+    with open('genomes.txt', mode='r', encoding="utf8") as genomeFile, open('populateErrors.log','w') as errorsLog:
         for line in genomeFile:
             #line = line.decode('utf-8')
             line = line.rstrip()
@@ -126,7 +126,7 @@ def populateGenomes(url,password=None,updateNCBITaxDB=False):
                     print(f'Already saw {fields[8]}')
                     continue
                 else:
-                    print(f'Processing {fields[8]}')
+                    print(f'Checking {fields[8]}')
 
                 #Commit to the DB every 10 lines of the genome file
                 if counter % 10 == 0:
@@ -149,14 +149,15 @@ def populateGenomes(url,password=None,updateNCBITaxDB=False):
                         checkTaxID=select([Taxonomy]).where(Taxonomy.TaxID==i)
                         resultCheckTaxID = session.execute(checkTaxID)
                         if i == 1:
-                            #Check whether the taxonomy info is alreeady in the DB. If not, add it
+                            #Check whether the taxonomy info is already in the DB. If not, add it
                             if resultCheckTaxID.fetchone() is None:
                                 taxid2name = ncbi.get_taxid_translator([i])
                                 rank = ncbi.get_rank([i])
                                 # print(f'{index}\t{i}\t{lineage[index-1]}\t{lineage[index]}\t{taxid2name[i]}\t{rank[i]}')
-                                session.add(Taxonomy(TaxID=i, RankName=rank[i], TaxName=taxid2name[i]))
+                                #The root node is added to the DB, as it does not have parent and NA will be inserted for ParentTaxID
+                                session.add(Taxonomy(TaxID=i, RankName=rank[i], TaxName=taxid2name[i])) 
                         else:
-                            #Check whether the taxonomy info is alreeady in the DB. If not, add it
+                            #Check whether the taxonomy info is already in the DB. If not, add it
                             if resultCheckTaxID.fetchone() is None:
                                 taxid2name = ncbi.get_taxid_translator([i])
                                 rank = ncbi.get_rank([i])
@@ -192,6 +193,8 @@ def populateGenomes(url,password=None,updateNCBITaxDB=False):
                                         # print(file)
                             ftp.quit()
                             time.sleep(3)#Wait to avoid being banned by NCBI
+                else:
+                    print(f'\t{fields[8]} with TaxID: {fields[1]} is not in the target groups')
     #commit the changes
     session.commit()
     #close the session

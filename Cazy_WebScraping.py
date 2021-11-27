@@ -1,4 +1,3 @@
-from os import name
 import sys
 import re
 from os.path import exists, getmtime
@@ -7,6 +6,16 @@ import urllib.request
 import time
 import argparse
 from ete3 import NCBITaxa
+
+#CAZymes classes
+CAZymeClasses={
+  'GH':'Glycoside Hydrolases',
+  'GT':'GlycosylTransferases',
+  'PL':'Polysaccharide Lyases',
+  'CE':'Carbohydrate Esterases',
+  'AA':'Auxiliary Activities',
+  'CBM':'Carbohydrate Binding Modules'
+}
 
 #Initialize the NCBI taxonomy DB using ETE
 ncbi = NCBITaxa()
@@ -21,6 +30,7 @@ typeFile= args.typeFile.lower()
 url = f'http://www.cazy.org/{family}_{typeFile}.html'	# url to download
 
 data={}
+infoFamily={}
 fileInDisk= f'{family}_{typeFile}.html'
 
 if exists(fileInDisk):
@@ -111,8 +121,27 @@ with open(fileInDisk) as fhand:
               #print(f'{match.group(1)} , {match.group(2)}')
             else:
               print(f'{pdbAcc} does not have a know string format for protein {proteinName} in family {family}')
+  tableFamily = soup.find("table", attrs={'cellspacing':'1', 'cellpadding':'1', 'border':'0'})
+  # print(tableFamily)
+  infoFamily[family]={}
+  for rowFam in tableFamily.find_all('tr'):
+    rowHeader=rowFam.find('th', attrs={'class':"thsum"})
+    rowData=rowFam.find("td", attrs={'class':"tdsum"})
+    #rowData=rowData.text.strip().replace(" ?; ?", ";")
+    rowData=re.sub(r' ?; ?',';',rowData.text.strip())
+    if rowHeader.text.strip() == 'Note' or rowHeader.text.strip() == 'External resources' or rowHeader.text.strip() == 'Statistics':
+      continue
+    infoFamily[family][rowHeader.text.strip()]=[]
+    for d in rowData.split(';'):
+      if d=='':
+        continue
+      infoFamily[family][rowHeader.text.strip()].append(d)
 
-
+for fam in infoFamily.keys():
+  for key in infoFamily[fam].keys():
+    for value in infoFamily[fam][key]:
+      True
+      #print(f'{fam}:{key}:{value}')
 
 for pN in data.keys():
   if 'ec' in data[pN].keys():

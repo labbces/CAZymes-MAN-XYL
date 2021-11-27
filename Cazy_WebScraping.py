@@ -21,35 +21,34 @@ typeFile= args.typeFile.lower()
 url = f'http://www.cazy.org/{family}_{typeFile}.html'	# url to download
 
 data={}
+fileInDisk= f'{family}_{typeFile}.html'
 
-if exists('{family}_{typeFile}.html'):
+if exists(fileInDisk):
   print(f'Structure CAZY file for family {family} exists,  checking age', file=sys.stderr)
-  mtime=getmtime('{family}_{typeFile}.html')
+  mtime=getmtime(fileInDisk)
   now=time.time()
   if (now - mtime) > 604800: #Download the file again if the file in disk is older than 7 days (60*60*24*7)
     print(f'Structure CAZY file for family {family}_{typeFile} is older than 7 days, downloading', file=sys.stderr)
-    urllib.request.urlretrieve(url, '{family}_{typeFile}.html')
+    urllib.request.urlretrieve(url, fileInDisk)
   else:
     print(f'Structure CAZY file for family {family}_{typeFile} is younger than 7 days, not downloading and processing as it is', file=sys.stderr)
 else:
   print(f'Structure CAZY file for family {family}_{typeFile} does not exist,  start downloading', file=sys.stderr)
-  urllib.request.urlretrieve(url, '{family}_{typeFile}.html')
+  urllib.request.urlretrieve(url, fileInDisk)
   print("Download complete", file=sys.stderr)
   
 # Using local html to avoid problems with with cazy 
-with open("{family}_{typeFile}.html") as fhand:
+with open(fileInDisk) as fhand:
   # Using BeatifulSoup to parse the html
   soup = BeautifulSoup(fhand, "lxml")
   table = soup.find("table", id="pos_onglet")
   for row in table.find_all('tr'):
     cols=row.find_all("td", id="separateur2")
-    subtable=row.find("table")
-    #print(subtable.text())
     if len(cols) >1:
-      True
       #proteinName is the first column
       proteinName=cols[0].text.strip()
       if not re.match(r'[0-9A-Z]{4}\[[A-Z,]\]*', proteinName):#Ignore the data coming from the PDB data
+        subtable=row.find("table")
         if proteinName in data.keys():
           print(f'{proteinName} is already in the dictionary, skipping', file=sys.stderr)
           continue
@@ -99,6 +98,19 @@ with open("{family}_{typeFile}.html") as fhand:
             data[proteinName]['seqAccsUniprot']={}
             for acc in seqAccsUniprot:
               data[proteinName]['seqAccsUniprot'][acc]=1
+        #Get PDB accession form subtable
+        data[proteinName]['PDB']={}
+        for rows in subtable.find_all('tr'):
+          cols=rows.find_all("td", id="separateur2")
+          if len(cols) >1:
+            #Getting PDB ids
+            pdbAcc=cols[0].text.strip()
+            match=re.search(r'([0-9A-Z]{4})\[([0-9A-Z,]+)\]', pdbAcc)
+            if match:
+              data[proteinName]['PDB'][match.group(1)]=match.group(2)
+              #print(f'{match.group(1)} , {match.group(2)}')
+            else:
+              print(f'{pdbAcc} does not have a know string format for protein {proteinName} in family {family}')
 
 
 

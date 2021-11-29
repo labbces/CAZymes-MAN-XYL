@@ -48,13 +48,14 @@ def createDB(password=None):
 
     class GenomeFile(Base):
         __tablename__ = 'GenomeFiles'
+        ID=Column(Integer, primary_key=True, autoincrement=True)
         AssemblyAccession = Column(String(100))
         FileSource = Column(String(255))
         FileType = Column(String(100))
         FileName = Column(String(255))
         __table_args__ = (
             ForeignKeyConstraint(['AssemblyAccession'], ['Genomes.AssemblyAccession']),
-            PrimaryKeyConstraint(FileType, AssemblyAccession),
+            UniqueConstraint(FileType, AssemblyAccession),
             {'mariadb_engine':'InnoDB'},
                     )
 
@@ -128,7 +129,7 @@ def dropDBWebCAZyTables(password=None):
 
 
 #Populate Genomes table with data from NCBI genomes
-def populateWebCAZyInfo(password=None,updateNCBITaxDB=False,data=None):
+def populateWebCAZyInfo(password=None,updateNCBITaxDB=False,infoFamily=None):
     #CAZymes classes
     CAZymeClass={
     'GH':'Glycoside Hydrolases',
@@ -147,7 +148,6 @@ def populateWebCAZyInfo(password=None,updateNCBITaxDB=False,data=None):
     import sys
     from unidecode import unidecode
 
-
     ncbi = NCBITaxa()
     
     if updateNCBITaxDB:#TODO. This is not working. Check it.
@@ -161,7 +161,7 @@ def populateWebCAZyInfo(password=None,updateNCBITaxDB=False,data=None):
     CazyFamily = Base.classes.CazyFamilies
     CazyFamilyInfo = Base.classes.CazyFamilyInfo
 
-    for family in data:
+    for family in infoFamily:
         match=re.search(r'^(GH|GT|PL|CE|AA|CBM)\d+',family)
         if match:
             print(f'{match.group(1)}\t{CAZymeClass[match.group(1)]}')
@@ -173,8 +173,8 @@ def populateWebCAZyInfo(password=None,updateNCBITaxDB=False,data=None):
             else:
                 print(f'Processing CAZy family: {family}')
                 session.add(CazyFamily(FamilyID=family, FamilyClass=CAZymeClass[match.group(1)])) 
-            for key in data[family]:
-                for item in data[family][key]:
+            for key in infoFamily[family]:
+                for item in infoFamily[family][key]:
                     item=unidecode(item)
                     #print(f'{key}\t{item}')
                     matchEC=re.search(r'\((EC [0-9.-]*)\)',item)
@@ -214,6 +214,8 @@ def populateGenomes(url,password=None,updateNCBITaxDB=False,typeOrg='euk'):
     import urllib.request
     import ftplib
     import time
+    from os.path import exists, getmtime
+    import sys
 
     ncbi = NCBITaxa()
     
@@ -237,7 +239,21 @@ def populateGenomes(url,password=None,updateNCBITaxDB=False,typeOrg='euk'):
     GenomeFile = Base.classes.GenomeFiles
 
     #get the data from the NCBI genomes and add to tables
-    urllib.request.urlretrieve(url,'genomes.txt')
+    if exists('genomes.txt'):
+        print(f'Genome info file from NCBI exists,  checking age', file=sys.stderr)
+        mtime=getmtime('genomes.txt')
+        now=time.time()
+        if (now - mtime) > 604800: #Download the file again if the file in disk is older than 7 days (60*60*24*7)
+            print(f'Genome info file from NCBI is older than 7 days, downloading', file=sys.stderr)
+            urllib.request.urlretrieve(url, 'genomes.txt')
+            print("Download complete", file=sys.stderr)
+        else:
+            print(f'Genome info file from NCBI is younger than 7 days, not downloading and processing as it is', file=sys.stderr)
+    else:
+        print(f'Genome info file from NCBI does not exist,  start downloading', file=sys.stderr)
+        urllib.request.urlretrieve(url, 'genomes.txt')
+        print("Download complete", file=sys.stderr)
+
     with open('genomes.txt', mode='r', encoding="utf8") as genomeFile, open('populateErrors.log','w') as errorsLog:
         for line in genomeFile:
             #line = line.decode('utf-8')

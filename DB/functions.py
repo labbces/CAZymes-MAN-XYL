@@ -181,14 +181,16 @@ def populateWebCAZyInfo(password=None,updateNCBITaxDB=False,infoFamily=None):
                     checkFamilyInfo=select([CazyFamilyInfo]).where(CazyFamilyInfo.FamilyID==family).where(CazyFamilyInfo.Key==key).where(CazyFamilyInfo.Value==item)
                     resultCheckFamilyInfo = session.execute(checkFamilyInfo)
                     if resultCheckFamilyInfo.fetchone():
-                        print(f'Already saw {family}\t{key}\t{item}')
+                        True
+                        # print(f'Already saw {family}\t{key}\t{item}')
                     else:
                         session.add(CazyFamilyInfo(FamilyID=family, Key=key, Value=item))
                     if matchEC:
                         checkFamilyInfoEC=select([CazyFamilyInfo]).where(CazyFamilyInfo.FamilyID==family).where(CazyFamilyInfo.Key=='Enzyme Code').where(CazyFamilyInfo.Value==matchEC.group(1))
                         resultCheckFamilyInfoEC = session.execute(checkFamilyInfoEC)
                         if resultCheckFamilyInfoEC.fetchone():
-                            print(f'Already saw {family}\tEnzyme Code\t{matchEC.group(1)}')
+                            True
+                            # print(f'Already saw {family}\tEnzyme Code\t{matchEC.group(1)}')
                         else:
                             session.add(CazyFamilyInfo(FamilyID=family, Key='Enzyme Code', Value=matchEC.group(1)))
             #commit the changes

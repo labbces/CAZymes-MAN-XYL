@@ -127,7 +127,7 @@ with open(fileInDisk) as fhand:
             else:
               print(f'{pdbAcc} does not have a know string format for protein {proteinName} in family {family}')
         enzymes.append(data)
-  print(enzymes)
+  # print(enzymes)
   tableFamily = soup.find("table", attrs={'cellspacing':'1', 'cellpadding':'1', 'border':'0'})
   # print(tableFamily)
   infoFamily[family]={}
@@ -156,7 +156,7 @@ if args.loadDB:
     updateNCBITaxDB=True
 
   if args.password:
-    populateWebCAZyInfo(password=args.password,updateNCBITaxDB=updateNCBITaxDB,infoFamily=infoFamily)
+    populateWebCAZyInfo(password=args.password,updateNCBITaxDB=updateNCBITaxDB,infoFamily=infoFamily,enzymes=enzymes)
   else:
     print(f'if you want to perform any operation on the DB you must provide a password.')
     sys.exit()

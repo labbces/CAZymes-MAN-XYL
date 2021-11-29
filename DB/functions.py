@@ -1,6 +1,5 @@
 #Functions for XYLMAN project
 
-
 #create connection object to mysql/mariadb database using sqlalchemy
 def connectDB(password=None):
     import sqlalchemy
@@ -11,15 +10,16 @@ def connectDB(password=None):
     db_name = 'xylman'
     db_host = '200.144.245.42'
     db_port =  3306
-    db_url = 'mariadb+pymysql://{}:{}@{}:{}/{}'.format(db_user,db_password,db_host,db_port,db_name)
-    engine = create_engine(db_url)
+    db_url = 'mariadb+pymysql://{}:{}@{}:{}/{}?use_unicode=1&charset=utf8'.format(db_user,db_password,db_host,db_port,db_name)
+    engine = create_engine(db_url,encoding='utf-8')
     return engine
 
-    #Create database schema using sqlalchemy.orm
+#Create database schema using sqlalchemy.orm
 def createDB(password=None):
     engine = connectDB(password)
     from sqlalchemy.ext.declarative import declarative_base
-    from sqlalchemy import Column, Integer, String, ForeignKeyConstraint, PrimaryKeyConstraint
+    from sqlalchemy.orm import relationship
+    from sqlalchemy import Column, Integer, String, ForeignKeyConstraint, PrimaryKeyConstraint, Text, Table, ForeignKey, UniqueConstraint
     
     #create a table
     Base = declarative_base()
@@ -57,17 +57,48 @@ def createDB(password=None):
             PrimaryKeyConstraint(FileType, AssemblyAccession),
             {'mariadb_engine':'InnoDB'},
                     )
+
+    class CazyFamily(Base):
+        __tablename__ = 'CazyFamilies'
+        FamilyID = Column(String(10), primary_key=True)
+        FamilyClass = Column(String(255))
+        ProteinSequences = relationship("ProteinSequence2CazyFamily",
+                                back_populates="CazyFam")
+        __table_args__ = (
+            {'mariadb_engine':'InnoDB'},
+        )
     
-    # class Genome2Taxonomy(Base):
-    #     __tablename__ = 'Genome2Taxonomy'
-    #     AssemblyAccession = Column(String(100))
-    #     TaxID = Column(Integer)
-    #     __table_args__ = (
-    #         PrimaryKeyConstraint(TaxID, AssemblyAccession),
-    #         ForeignKeyConstraint(['TaxID'], ['Taxonomy.TaxID']),
-    #         ForeignKeyConstraint(['AssemblyAccession'], ['Genomes.AssemblyAccession']),
-    #     #    {'mariadb_engine':'InnoDB'},
-    #         )
+    class CazyFamilyInfo(Base):
+        __tablename__ = 'CazyFamilyInfo'
+        ID= Column(Integer, primary_key=True, autoincrement=True)
+        FamilyID = Column(String(10))
+        Key = Column(String(255))
+        Value = Column(String(255))
+        __table_args__ = (
+            ForeignKeyConstraint(['FamilyID'], ['CazyFamilies.FamilyID']),
+            {'mariadb_engine':'InnoDB'},
+        )
+    
+    class ProteinSequence(Base):
+        __tablename__ = 'ProteinSequences'
+        ProteinID = Column(String(255), primary_key=True)
+        Sequence  = Column(Text)
+        HashSequence= Column(String(255))
+        CazyFamilies = relationship("ProteinSequence2CazyFamily",
+                                back_populates="ProteinSeq")
+        __table_args__ = (
+            {'mariadb_engine':'InnoDB'},
+        )
+
+    class ProteinSequence2CazyFamily(Base):
+        __tablename__ = 'ProteinSequence2CazyFamily'
+        CazyFamilyID = Column(String(10), ForeignKey('CazyFamilies.FamilyID'), primary_key=True)
+        ProteinID = Column(String(255), ForeignKey('ProteinSequences.ProteinID'), primary_key=True)
+        CazyFam = relationship("CazyFamily",back_populates='ProteinSequences')
+        ProteinSeq = relationship("ProteinSequence",back_populates='CazyFamilies')
+        __table_args__ = (
+            {'mariadb_engine':'InnoDB'},
+        )    
 
     Base.metadata.create_all(engine)
 
@@ -79,8 +110,99 @@ def dropDB(password=None):
     Base.prepare(engine, reflect=True)
     Base.metadata.drop_all(engine)
 
+#Drop the tables with info from the CAZy website
+def dropDBWebCAZyTables(password=None):
+    engine = connectDB(password)
+    from sqlalchemy import inspect
+    from sqlalchemy.ext.automap import automap_base
+    Base = automap_base()
+    Base.prepare(engine, reflect=True)
+    listTables=['CazyFamilyInfo']
+    for tbl in listTables:
+        if inspect(engine).has_table(tbl):
+            print(f'Dropping table \'{tbl}\'')
+            Base.metadata.tables[tbl].drop(engine)
+        else:
+            print(f'Table \'{tbl}\' does not exists yet in DB.. Cannot delete.')
+
+
 
 #Populate Genomes table with data from NCBI genomes
+def populateWebCAZyInfo(password=None,updateNCBITaxDB=False,data=None):
+    #CAZymes classes
+    CAZymeClass={
+    'GH':'Glycoside Hydrolases',
+    'GT':'GlycosylTransferases',
+    'PL':'Polysaccharide Lyases',
+    'CE':'Carbohydrate Esterases',
+    'AA':'Auxiliary Activities',
+    'CBM':'Carbohydrate Binding Modules'
+    }
+    engine = connectDB(password)
+    from sqlalchemy.orm import sessionmaker
+    from sqlalchemy import select
+    from sqlalchemy.ext.automap import automap_base
+    from ete3 import NCBITaxa
+    import re
+    import sys
+    from unidecode import unidecode
+
+
+    ncbi = NCBITaxa()
+    
+    if updateNCBITaxDB:#TODO. This is not working. Check it.
+        ncbi.update_taxonomy_database()
+
+    Base = automap_base()
+    Base.prepare(engine, reflect=True)
+    Session = sessionmaker(bind=engine)
+    session = Session()
+    
+    CazyFamily = Base.classes.CazyFamilies
+    CazyFamilyInfo = Base.classes.CazyFamilyInfo
+
+    for family in data:
+        match=re.search(r'^(GH|GT|PL|CE|AA|CBM)\d+',family)
+        if match:
+            print(f'{match.group(1)}\t{CAZymeClass[match.group(1)]}')
+            checkFamily=select([CazyFamily]).where(CazyFamily.FamilyID==family)
+            resultCheckFamily = session.execute(checkFamily)
+            if resultCheckFamily.fetchone():
+                print(f'Already saw {family}')
+                # continue
+            else:
+                print(f'Processing CAZy family: {family}')
+                session.add(CazyFamily(FamilyID=family, FamilyClass=CAZymeClass[match.group(1)])) 
+            for key in data[family]:
+                for item in data[family][key]:
+                    item=unidecode(item)
+                    #print(f'{key}\t{item}')
+                    matchEC=re.search(r'\((EC [0-9.-]*)\)',item)
+                    checkFamilyInfo=select([CazyFamilyInfo]).where(CazyFamilyInfo.FamilyID==family).where(CazyFamilyInfo.Key==key).where(CazyFamilyInfo.Value==item)
+                    resultCheckFamilyInfo = session.execute(checkFamilyInfo)
+                    if resultCheckFamilyInfo.fetchone():
+                        print(f'Already saw {family}\t{key}\t{item}')
+                    else:
+                        session.add(CazyFamilyInfo(FamilyID=family, Key=key, Value=item))
+                    if matchEC:
+                        checkFamilyInfoEC=select([CazyFamilyInfo]).where(CazyFamilyInfo.FamilyID==family).where(CazyFamilyInfo.Key=='Enzyme Code').where(CazyFamilyInfo.Value==matchEC.group(1))
+                        resultCheckFamilyInfoEC = session.execute(checkFamilyInfoEC)
+                        if resultCheckFamilyInfoEC.fetchone():
+                            print(f'Already saw {family}\tEnzyme Code\t{matchEC.group(1)}')
+                        else:
+                            session.add(CazyFamilyInfo(FamilyID=family, Key='Enzyme Code', Value=matchEC.group(1)))
+            #commit the changes
+            session.commit()
+        else:
+            print(f'{family}\tUnknown',file=sys.stderr)
+
+    #commit the changes
+    session.commit()
+    #close the session
+    session.close()
+        
+
+
 def populateGenomes(url,password=None,updateNCBITaxDB=False,typeOrg='euk'):
     #print(f'{typeOrg} {updateNCBITaxDB}')
     engine = connectDB(password)
@@ -204,3 +326,39 @@ def populateGenomes(url,password=None,updateNCBITaxDB=False,typeOrg='euk'):
     session.commit()
     #close the session
     session.close()
+
+# def GenomeInfoStats(password=None):
+#     engine = connectDB(password)
+
+#     from sqlalchemy.orm import sessionmaker
+#     from sqlalchemy import select
+#     from sqlalchemy.sql import text
+#     from sqlalchemy.ext.automap import automap_base
+#     from ete3 import NCBITaxa
+    
+#     #create a session
+#     Base = automap_base()
+#     Base.prepare(engine, reflect=True)
+#     Session = sessionmaker(bind=engine)
+#     session = Session()
+    
+#     Genome = Base.classes.Genomes
+#     Taxonomy = Base.classes.Taxonomy
+#     GenomeFile = Base.classes.GenomeFiles
+
+#     hierachicalQuery = text("""with recursive ancestors as ( 
+#         select * from Taxonomy where TaxID in ( 
+#             select TaxID from Taxonomy 
+#              where RankName='species' and TaxName like 'A%'
+#             ) 
+#             union 
+#             select f.*  from Taxonomy as f, ancestors as a 
+#             where  f.TaxID = a.ParentTaxID 
+#             )
+#             select a.TaxName as labels, b.TaxName as Parent 
+#             from ancestors as a, Taxonomy as b 
+#             where a.ParentTaxID = b.TaxID""")
+#     session.execute(hierachicalQuery).fetchall()
+
+
+#     session.close()

@@ -6,22 +6,17 @@ import urllib.request
 import time
 import argparse
 from ete3 import NCBITaxa
-
-#CAZymes classes
-CAZymeClasses={
-  'GH':'Glycoside Hydrolases',
-  'GT':'GlycosylTransferases',
-  'PL':'Polysaccharide Lyases',
-  'CE':'Carbohydrate Esterases',
-  'AA':'Auxiliary Activities',
-  'CBM':'Carbohydrate Binding Modules'
-}
+from DB.functions import *
 
 #Initialize the NCBI taxonomy DB using ETE
 ncbi = NCBITaxa()
 
 parser= argparse.ArgumentParser(description='Download fdata from CAZy')
 parser.add_argument('--family', dest='family', type=str, help='CAZy faimly')
+parser.add_argument('--password', metavar='password', type=str, help='password for the database')
+parser.add_argument('--dropDBCAZyTables', dest='dropDBCAZyTables', help='drop the tables related to CAZy web site from the database', default=False, action='store_true')
+parser.add_argument('--loadDB', dest='loadDB', help='load the database with CAZy website data', default=False, action='store_true')
+parser.add_argument('--updateNCBITaxDB', dest='updateNCBITaxDB', help='Update NCBI\'s taxonomy database', default=False, action='store_true')
 parser.add_argument('--typeFile', dest='typeFile', type=str, help='type fo page to downlaod, can be characterized or structure', default='structure', choices=['characterized', 'structure'])
 args= parser.parse_args()
 
@@ -32,6 +27,14 @@ url = f'http://www.cazy.org/{family}_{typeFile}.html'	# url to download
 data={}
 infoFamily={}
 fileInDisk= f'{family}_{typeFile}.html'
+
+if args.dropDBCAZyTables:
+  if args.password:
+    dropDBWebCAZyTables(args.password)
+    createDB(args.password)
+  else:
+    print(f'if you want to perform any operation on the DB you must provide a password.')
+    sys.exit()
 
 if exists(fileInDisk):
   print(f'Structure CAZY file for family {family} exists,  checking age', file=sys.stderr)
@@ -149,6 +152,18 @@ for pN in data.keys():
       True
       # print(f'{pN} {ec}')
 
+if args.loadDB:
+  updateNCBITaxDB=False
+  if(args.updateNCBITaxDB):
+    updateNCBITaxDB=True
+
+  if args.password:
+    populateWebCAZyInfo(password=args.password,updateNCBITaxDB=updateNCBITaxDB,data=infoFamily)
+  else:
+    print(f'if you want to perform any operation on the DB you must provide a password.')
+    sys.exit()
+  
+  
 
   # print(table.text)
   # rows = table.find_all("tr", onmouseover="this.bgColor='#F8FFD5';")

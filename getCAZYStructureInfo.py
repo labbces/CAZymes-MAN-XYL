@@ -90,7 +90,7 @@ with open(fileInDisk) as fhand:
           else:
             name2taxID=ncbi.get_name_translator([taxName])
             if name2taxID:
-              data[proteinName]['taxID']=name2taxID[taxName]
+              data[proteinName]['taxID']=name2taxID[taxName][0]
               # print(name2taxID[taxName][0])
             else:
               taxName=' '.join(taxName.split(' ')[0:2])
@@ -156,7 +156,7 @@ if args.loadDB:
     updateNCBITaxDB=True
 
   if args.password:
-    populateWebCAZyInfo(password=args.password,updateNCBITaxDB=updateNCBITaxDB,infoFamily=infoFamily,enzymes=enzymes)
+    populateWebCAZyInfo(password=args.password,updateNCBITaxDB=updateNCBITaxDB,infoFamily=infoFamily,enzymes=enzymes,family=args.family)
   else:
     print(f'if you want to perform any operation on the DB you must provide a password.')
     sys.exit()

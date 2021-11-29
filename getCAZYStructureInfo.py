@@ -24,8 +24,8 @@ family= args.family.upper()
 typeFile= args.typeFile.lower()
 url = f'http://www.cazy.org/{family}_{typeFile}.html'	# url to download
 
-data={}
 infoFamily={}
+enzymes=[]
 fileInDisk= f'{family}_{typeFile}.html'
 
 if args.dropDBCAZyTables:
@@ -61,10 +61,11 @@ with open(fileInDisk) as fhand:
       #proteinName is the first column
       proteinName=cols[0].text.strip()
       if not re.match(r'[0-9A-Z]{4}\[[A-Z,]\]*', proteinName):#Ignore the data coming from the PDB data
+        data={}
         subtable=row.find("table")
         if proteinName in data.keys():
-          print(f'{proteinName} is already in the dictionary, skipping', file=sys.stderr)
-          continue
+          print(f'{proteinName} is already in the dictionary, processing anyway.', file=sys.stderr)
+#          continue #Canot do this, There are enzymes with duplicated names check GH1 in CAZY.org
         else:
           data[proteinName]={}
           #Enzyme Code is in the second column
@@ -124,6 +125,8 @@ with open(fileInDisk) as fhand:
               #print(f'{match.group(1)} , {match.group(2)}')
             else:
               print(f'{pdbAcc} does not have a know string format for protein {proteinName} in family {family}')
+        enzymes.append(data)
+  print(enzymes)
   tableFamily = soup.find("table", attrs={'cellspacing':'1', 'cellpadding':'1', 'border':'0'})
   # print(tableFamily)
   infoFamily[family]={}
@@ -140,12 +143,6 @@ with open(fileInDisk) as fhand:
         continue
       infoFamily[family][rowHeader.text.strip()].append(d)
 
-for fam in infoFamily.keys():
-  for key in infoFamily[fam].keys():
-    for value in infoFamily[fam][key]:
-      True
-      #print(f'{fam}:{key}:{value}')
-
 for pN in data.keys():
   if 'ec' in data[pN].keys():
     for ec in data[pN]['ec']:
@@ -158,7 +155,7 @@ if args.loadDB:
     updateNCBITaxDB=True
 
   if args.password:
-    populateWebCAZyInfo(password=args.password,updateNCBITaxDB=updateNCBITaxDB,data=infoFamily)
+    populateWebCAZyInfo(password=args.password,updateNCBITaxDB=updateNCBITaxDB,infoFamily=infoFamily)
   else:
     print(f'if you want to perform any operation on the DB you must provide a password.')
     sys.exit()

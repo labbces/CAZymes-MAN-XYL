@@ -83,6 +83,7 @@ with open(fileInDisk) as fhand:
           taxLink=cols[2].find('a')
           matchLink=re.search(r'http://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi\?id=([0-9]*)', taxLink.get('href'))
           data[proteinName]['taxID']={}
+          data[proteinName]['taxNameAsIs']=taxName
           if matchLink:
             data[proteinName]['taxID']=matchLink.group(1)
             #print(f'{taxLink.get("href")} {matchLink.group(1)}')

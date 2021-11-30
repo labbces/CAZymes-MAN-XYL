@@ -1,6 +1,7 @@
 #Functions for XYLMAN project
 
 #create connection object to mysql/mariadb database using sqlalchemy
+from re import I
 from sqlalchemy.sql.sqltypes import Enum
 
 
@@ -113,6 +114,7 @@ def createDB(password=None):
         Name=Column(String(255))
         Type=Column(Enum('characterized','structure')) #This could be either characterized or structure
         FamilyID = Column(String(10))
+        subFamily = Column(Integer, nullable=True)
         __table_args__ = (
             ForeignKeyConstraint(['FamilyID'], ['CazyFamilies.FamilyID']),
             ForeignKeyConstraint(['TaxID'], ['Taxonomy.TaxID']),
@@ -277,7 +279,10 @@ def populateWebCAZyInfo(password=None,updateNCBITaxDB=False,infoFamily=None,enzy
                 checkStudiedCAZymes=select([StudiedCAZymes]).where(StudiedCAZymes.TaxID==int(lineage[-1])).where(StudiedCAZymes.TaxNameAsIs==enzymes[inx][name]['taxNameAsIs']).where(StudiedCAZymes.Name==unidecode(name)).where(StudiedCAZymes.FamilyID==family).where(StudiedCAZymes.Type=='structure')
                 resultCheckStudiedCAZymes = session.execute(checkStudiedCAZymes)
                 if resultCheckStudiedCAZymes.fetchone() is None:
-                    StudCazy=StudiedCAZymes(TaxID=int(lineage[-1]), TaxNameAsIs=enzymes[inx][name]['taxNameAsIs'], Name=unidecode(name), FamilyID=family, Type='structure')
+                    if 'subFamily' in enzymes[inx][name].keys():
+                        StudCazy=StudiedCAZymes(TaxID=int(lineage[-1]), subFamily=enzymes[inx][name]['subFamily'], TaxNameAsIs=enzymes[inx][name]['taxNameAsIs'], Name=unidecode(name), FamilyID=family, Type='structure')
+                    else:
+                        StudCazy=StudiedCAZymes(TaxID=int(lineage[-1]), TaxNameAsIs=enzymes[inx][name]['taxNameAsIs'], Name=unidecode(name), FamilyID=family, Type='structure')
                     session.add(StudCazy)
                     session.flush()
                     StudiedCAZymesID=StudCazy.StudiedCAZymesID

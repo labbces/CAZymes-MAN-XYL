@@ -1,6 +1,9 @@
 #Functions for XYLMAN project
 
 #create connection object to mysql/mariadb database using sqlalchemy
+from sqlalchemy.sql.sqltypes import Enum
+
+
 def connectDB(password=None):
     import sqlalchemy
     from sqlalchemy import create_engine
@@ -83,6 +86,7 @@ def createDB(password=None):
     class ProteinSequence(Base):
         __tablename__ = 'ProteinSequences'
         ProteinID = Column(String(255), primary_key=True)
+        Database=Column(String(50))
         Sequence  = Column(Text)
         HashSequence= Column(String(255))
         CazyFamilies = relationship("ProteinSequence2CazyFamily",
@@ -100,6 +104,42 @@ def createDB(password=None):
         __table_args__ = (
             {'mariadb_engine':'InnoDB'},
         )    
+    
+    class StudiedCAZymes(Base):
+        __tablename__ = 'StudiedCAZymes'
+        StudiedCAZymesID=Column(Integer, primary_key=True, autoincrement=True)
+        TaxID = Column(Integer)
+        TaxNameAsIs=Column(String(255))
+        Name=Column(String(255))
+        Type=Column(Enum('characterized','structure')) #This could be either characterized or structure
+        FamilyID = Column(String(10))
+        __table_args__ = (
+            ForeignKeyConstraint(['FamilyID'], ['CazyFamilies.FamilyID']),
+            ForeignKeyConstraint(['TaxID'], ['Taxonomy.TaxID']),
+            {'mariadb_engine':'InnoDB'},
+        )
+    
+    class StudiedCAZymesPDB(Base):
+        __tablename__ = 'StudiedCAZymesPDB'
+        ID=Column(Integer, primary_key=True, autoincrement=True)
+        StudiedCAZymesID=Column(Integer)
+        PDBID = Column(String(10))
+        PDBChain=Column(String(20))
+        __table_args__ = (
+            ForeignKeyConstraint(['StudiedCAZymesID'], ['StudiedCAZymes.StudiedCAZymesID']),
+            {'mariadb_engine':'InnoDB'},
+        )
+    
+    class StudiedCAZymesProteins(Base):
+        __tablename__ = 'StudiedCAZymesProteins'
+        ID=Column(Integer, primary_key=True, autoincrement=True)
+        StudiedCAZymesID=Column(Integer)
+        ProteinID = Column(String(255))
+        __table_args__ = (
+            ForeignKeyConstraint(['StudiedCAZymesID'], ['StudiedCAZymes.StudiedCAZymesID']),
+            ForeignKeyConstraint(['ProteinID'], ['ProteinSequences.ProteinID']),
+            {'mariadb_engine':'InnoDB'},
+        )
 
     Base.metadata.create_all(engine)
 
@@ -118,7 +158,7 @@ def dropDBWebCAZyTables(password=None):
     from sqlalchemy.ext.automap import automap_base
     Base = automap_base()
     Base.prepare(engine, reflect=True)
-    listTables=['CazyFamilyInfo']
+    listTables=['CazyFamilyInfo','StudiedCAZymesProteins','StudiedCAZymesPDB','StudiedCAZymes']
     for tbl in listTables:
         if inspect(engine).has_table(tbl):
             print(f'Dropping table \'{tbl}\'')
@@ -129,7 +169,7 @@ def dropDBWebCAZyTables(password=None):
 
 
 #Populate Genomes table with data from NCBI genomes
-def populateWebCAZyInfo(password=None,updateNCBITaxDB=False,infoFamily=None):
+def populateWebCAZyInfo(password=None,updateNCBITaxDB=False,infoFamily=None,enzymes=None,family=None):
     #CAZymes classes
     CAZymeClass={
     'GH':'Glycoside Hydrolases',
@@ -149,7 +189,8 @@ def populateWebCAZyInfo(password=None,updateNCBITaxDB=False,infoFamily=None):
     from unidecode import unidecode
 
     ncbi = NCBITaxa()
-    
+    targetGroups={4751,2157,2,10239}
+
     if updateNCBITaxDB:#TODO. This is not working. Check it.
         ncbi.update_taxonomy_database()
 
@@ -160,6 +201,12 @@ def populateWebCAZyInfo(password=None,updateNCBITaxDB=False,infoFamily=None):
     
     CazyFamily = Base.classes.CazyFamilies
     CazyFamilyInfo = Base.classes.CazyFamilyInfo
+    Taxonomy = Base.classes.Taxonomy
+    StudiedCAZymes = Base.classes.StudiedCAZymes
+    StudiedCAZymesPDB = Base.classes.StudiedCAZymesPDB
+    StudiedCAZymesProteins = Base.classes.StudiedCAZymesProteins
+    ProteinSequences = Base.classes.ProteinSequences
+
 
     for family in infoFamily:
         match=re.search(r'^(GH|GT|PL|CE|AA|CBM)\d+',family)
@@ -197,7 +244,86 @@ def populateWebCAZyInfo(password=None,updateNCBITaxDB=False,infoFamily=None):
             session.commit()
         else:
             print(f'{family}\tUnknown',file=sys.stderr)
-
+    for inx in range(0,len(enzymes)):
+        for name in enzymes[inx].keys():
+            #Inserting Taxonomy info
+            try:
+                lineage = ncbi.get_lineage(int(enzymes[inx][name]['taxID']))
+            except:
+                print(f"Error: Missing TaxID from NCBI DB: {enzymes[inx][name]['taxID']}\n",file=sys.stderr)
+                continue
+            if targetGroups.intersection(set(lineage)):
+                for index, i in enumerate(lineage):
+                    checkTaxID=select([Taxonomy]).where(Taxonomy.TaxID==i)
+                    resultCheckTaxID = session.execute(checkTaxID)
+                    if i == 1:
+                        #Check whether the taxonomy info is already in the DB. If not, add it
+                        if resultCheckTaxID.fetchone() is None:
+                            taxid2name = ncbi.get_taxid_translator([i])
+                            rank = ncbi.get_rank([i])
+                            #print(f'{index}\t{i}\t{lineage[index-1]}\t{lineage[index]}\t{taxid2name[i]}\t{rank[i]}')
+                            #The root node is added to the DB, as it does not have parent and NA will be inserted for ParentTaxID
+                            session.add(Taxonomy(TaxID=i, RankName=rank[i], TaxName=taxid2name[i])) 
+                    else:
+                        #Check whether the taxonomy info is already in the DB. If not, add it
+                        if resultCheckTaxID.fetchone() is None:
+                            taxid2name = ncbi.get_taxid_translator([i])
+                            rank = ncbi.get_rank([i])
+                            # print(f'{index}\t{i}\t{lineage[index-1]}\t{lineage[index]}\t{taxid2name[i]}\t{rank[i]}')
+                            session.add(Taxonomy(ParentTaxID=lineage[index-1], TaxID=i, RankName=rank[i], TaxName=taxid2name[i]))
+                session.commit()
+                #Filling in StudiedCAZymes table
+                StudiedCAZymesID=0
+                checkStudiedCAZymes=select([StudiedCAZymes]).where(StudiedCAZymes.TaxID==int(lineage[-1])).where(StudiedCAZymes.TaxNameAsIs==enzymes[inx][name]['taxNameAsIs']).where(StudiedCAZymes.Name==unidecode(name)).where(StudiedCAZymes.FamilyID==family).where(StudiedCAZymes.Type=='structure')
+                resultCheckStudiedCAZymes = session.execute(checkStudiedCAZymes)
+                if resultCheckStudiedCAZymes.fetchone() is None:
+                    StudCazy=StudiedCAZymes(TaxID=int(lineage[-1]), TaxNameAsIs=enzymes[inx][name]['taxNameAsIs'], Name=unidecode(name), FamilyID=family, Type='structure')
+                    session.add(StudCazy)
+                    session.flush()
+                    StudiedCAZymesID=StudCazy.StudiedCAZymesID
+                else:
+                    checkStudiedCAZymes2=select([StudiedCAZymes]).where(StudiedCAZymes.TaxID==int(lineage[-1])).where(StudiedCAZymes.TaxNameAsIs==enzymes[inx][name]['taxNameAsIs']).where(StudiedCAZymes.Name==unidecode(name)).where(StudiedCAZymes.FamilyID==family).where(StudiedCAZymes.Type=='structure')
+                    resultCheckStudiedCAZymes2 = session.execute(checkStudiedCAZymes2)
+                    StudiedCAZymesID=resultCheckStudiedCAZymes2.fetchone().StudiedCAZymes.StudiedCAZymesID
+                #Filling in StudiedCAZymesPDB table
+                for pdb in enzymes[inx][name]['PDB']:
+                    checkStudiedCAZymesPDB=select([StudiedCAZymesPDB]).where(StudiedCAZymesPDB.StudiedCAZymesID==StudiedCAZymesID).where(StudiedCAZymesPDB.PDBID==pdb).where(StudiedCAZymesPDB.PDBChain==enzymes[inx][name]['PDB'][pdb])
+                    resultCheckStudiedCAZymesPDB = session.execute(checkStudiedCAZymesPDB)
+                    if resultCheckStudiedCAZymesPDB.fetchone() is None:
+                        StudCazyPDB=StudiedCAZymesPDB(StudiedCAZymesID=StudiedCAZymesID, PDBID=pdb, PDBChain=enzymes[inx][name]['PDB'][pdb])
+                        session.add(StudCazyPDB)
+                        session.commit()
+                if 'seqAccsGenBank' in enzymes[inx][name].keys():
+                    for acc in enzymes[inx][name]['seqAccsGenBank']:
+                        checkProteinSequences=select([ProteinSequences]).where(ProteinSequences.ProteinID==acc)
+                        resultCheckProteinSequences = session.execute(checkProteinSequences)
+                        if resultCheckProteinSequences.fetchone() is None:
+                            ProteinSequence=ProteinSequences(ProteinID=acc, Database='genbank')
+                            session.add(ProteinSequence)
+                            session.commit()
+                        checkStudiedCAZymesProteins=select([StudiedCAZymesProteins]).where(StudiedCAZymesProteins.StudiedCAZymesID==StudiedCAZymesID).where(StudiedCAZymesProteins.ProteinID==acc)
+                        resultCheckStudiedCAZymesProteins=session.execute(checkStudiedCAZymesProteins)
+                        if resultCheckStudiedCAZymesProteins.fetchone() is None:
+                            StudCazyProtein=StudiedCAZymesProteins(StudiedCAZymesID=StudiedCAZymesID, ProteinID=acc)
+                            session.add(StudCazyProtein)
+                            session.commit()
+                if 'seqAccsUniprot' in enzymes[inx][name].keys():
+                    for acc in enzymes[inx][name]['seqAccsUniprot']:
+                        checkProteinSequences=select([ProteinSequences]).where(ProteinSequences.ProteinID==acc)
+                        resultCheckProteinSequences = session.execute(checkProteinSequences)
+                        if resultCheckProteinSequences.fetchone() is None:
+                            ProteinSequence=ProteinSequences(ProteinID=acc, Database='uniprot')
+                            session.add(ProteinSequence)
+                            session.commit()
+                        checkStudiedCAZymesProteins=select([StudiedCAZymesProteins]).where(StudiedCAZymesProteins.StudiedCAZymesID==StudiedCAZymesID).where(StudiedCAZymesProteins.ProteinID==acc)
+                        resultCheckStudiedCAZymesProteins=session.execute(checkStudiedCAZymesProteins)
+                        if resultCheckStudiedCAZymesProteins.fetchone() is None:
+                            StudCazyProtein=StudiedCAZymesProteins(StudiedCAZymesID=StudiedCAZymesID, ProteinID=acc)
+                            session.add(StudCazyProtein)
+                            session.commit()
+                
+            #print(enzymes[inx][name]['taxID'])
+            #print(enzymes[inx])
     #commit the changes
     session.commit()
     #close the session
@@ -268,13 +394,14 @@ def populateGenomes(url,password=None,updateNCBITaxDB=False,typeOrg='euk'):
                 checkGenome=select([Genome]).where(Genome.AssemblyAccession==fields[assemblyAccessionIndex])
                 resultCheckGenome = session.execute(checkGenome)
                 if resultCheckGenome.fetchone():
-                    print(f'Already saw {fields[assemblyAccessionIndex]}')
+                    # print(f'Already saw {fields[assemblyAccessionIndex]}')
                     continue
                 else:
-                    print(f'Checking {fields[assemblyAccessionIndex]}')
+                    True
+                    # print(f'Checking {fields[assemblyAccessionIndex]}')
 
                 #Commit to the DB every 10 lines of the genome file
-                if counter % 10 == 0:
+                if counter % 100 == 0:
                     session.commit()
 
                 #If there is no taxonomy info for the genome, control the error and continue
@@ -284,7 +411,7 @@ def populateGenomes(url,password=None,updateNCBITaxDB=False,typeOrg='euk'):
                     errorsLog.write(f'Error: Missing TaxID from NCBI DB: {fields[1]} for assembly: {fields[assemblyAccessionIndex]}\n')
                     continue
                 #Only processes genomes with a taxonomy ID in fungi, archaea or bacteria
-                targetGroups={4751,2157,2}
+                targetGroups={4751,2157,2,10239}
                 if targetGroups.intersection(set(lineage)):
                     counter+=1
                     print(f'\tAdding Genome Info for Assembly {fields[assemblyAccessionIndex]}')

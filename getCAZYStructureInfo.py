@@ -81,8 +81,12 @@ with open(fileInDisk) as fhand:
           #Organism is in the third column
           taxName=cols[2].text.strip()
           taxLink=cols[2].find('a')
+          print(taxName)
+          if not taxLink:
+            print(f'No link for {taxName}', file=sys.stderr)
+            continue
           matchLink=re.search(r'http://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi\?id=([0-9]*)', taxLink.get('href'))
-          data[proteinName]['taxID']={}
+          #data[proteinName]['taxID']={}
           data[proteinName]['taxNameAsIs']=taxName
           if matchLink:
             data[proteinName]['taxID']=matchLink.group(1)
@@ -98,7 +102,11 @@ with open(fileInDisk) as fhand:
               if name2taxID:
                 data[proteinName]['taxID']=name2taxID[taxName][0]
               else:
-                print(f'{taxName} not found in taxonomy for protein {proteinName} in family {family}')
+                #Dealing with some fringe cases of species names, these appear to be wrong in CAZy.org
+                if taxName == 'Lacticaseibacillus plantarum':
+                  data[proteinName]['taxID']='1590' 
+                else:
+                  print(f'{taxName} not found in taxonomy for protein {proteinName} in family {family}')
               #print(f'sss {taxName} {name2taxID}')
           #Sequence accession are in the fourth column - for GenBank accession
           #A cell (td) can have multiple accession separeted by a <br>, with the methods stripped_strings I can get them and turn them into a list

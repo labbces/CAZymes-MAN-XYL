@@ -57,6 +57,7 @@ with open(fileInDisk) as fhand:
   table = soup.find("table", id="pos_onglet")
   for row in table.find_all('tr'):
     cols=row.find_all("td", id="separateur2")
+    tdSubFam=row.find("td", id="separateur2", attrs={'align':'center'})
     if len(cols) >1:
       #proteinName is the first column
       proteinName=cols[0].text.strip()
@@ -108,19 +109,25 @@ with open(fileInDisk) as fhand:
                 else:
                   print(f'{taxName} not found in taxonomy for protein {proteinName} in family {family}')
               #print(f'sss {taxName} {name2taxID}')
+          #Get subfamily numver when available:
+          subFamily=''
+          if(tdSubFam.text.strip() != '' and re.search(r'[0-9]*',tdSubFam.text.strip())):
+            #print(f'{proteinName}\tSubFam:{tdSubFam.text.strip()}')
+            subFamily=tdSubFam.text.strip()
+            data[proteinName]['subFamily']=subFamily
           #Sequence accession are in the fourth column - for GenBank accession
           #A cell (td) can have multiple accession separeted by a <br>, with the methods stripped_strings I can get them and turn them into a list
           seqAccsGenkBank=list(cols[3].stripped_strings)
           if seqAccsGenkBank:
             data[proteinName]['seqAccsGenBank']={}
             for acc in seqAccsGenkBank:
-              data[proteinName]['seqAccsGenBank'][acc]=1
+              data[proteinName]['seqAccsGenBank'][acc]=subFamily
           #Sequence accession are in the fifth column - for UniProt accession
           seqAccsUniprot=list(cols[4].stripped_strings)
           if seqAccsUniprot:
             data[proteinName]['seqAccsUniprot']={}
             for acc in seqAccsUniprot:
-              data[proteinName]['seqAccsUniprot'][acc]=1
+              data[proteinName]['seqAccsUniprot'][acc]=subFamily
         #Get PDB accession form subtable
         data[proteinName]['PDB']={}
         for rows in subtable.find_all('tr'):

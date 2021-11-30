@@ -128,7 +128,7 @@ with open(fileInDisk) as fhand:
           if len(cols) >1:
             #Getting PDB ids
             pdbAcc=cols[0].text.strip()
-            match=re.search(r'([0-9A-Z]{4})\[([0-9A-Z,]+)\]', pdbAcc)
+            match=re.search(r'([0-9A-Z]{4})\[([0-9A-Z,]+)\]?', pdbAcc)
             if match:
               data[proteinName]['PDB'][match.group(1)]=match.group(2)
               #print(f'{match.group(1)} , {match.group(2)}')

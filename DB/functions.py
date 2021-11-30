@@ -168,7 +168,137 @@ def dropDBWebCAZyTables(password=None):
         else:
             print(f'Table \'{tbl}\' does not exists yet in DB.. Cannot delete.')
 
+#Populate the ProteinSequences table - update, by getting the protein sequences from the Genbank/Uniprot and CAZy
 
+def updateProteinSequences(password=None,apiKey=None):
+    engine = connectDB(password)
+    from sqlalchemy.orm import sessionmaker
+    from sqlalchemy import select, update, bindparam
+    from sqlalchemy.ext.automap import automap_base
+    import sys
+    import time
+
+    Base = automap_base()
+    Base.prepare(engine, reflect=True)
+    Session = sessionmaker(bind=engine)
+    session = Session()
+
+    ProteinSequences = Base.classes.ProteinSequences
+
+    updateStmt = (
+        update(ProteinSequences).
+        where(ProteinSequences.ProteinID == bindparam('proteinID')).
+        where(ProteinSequences.Database == bindparam('DB')).
+        values(Sequence=bindparam('sequence'))
+    )
+
+    getProteinSequences=select([ProteinSequences.ProteinID,ProteinSequences.Database]).where(ProteinSequences.Sequence==None).where(ProteinSequences.Database=='genbank').limit(50)
+    resultsGetProteinSequences=session.execute(getProteinSequences)
+    rows=resultsGetProteinSequences.fetchall()
+    proteinIDsGenbank=[]
+    proteinIDsUniprot=[]
+    if rows:
+        for row in rows:
+            print(row)
+            if row[1]=='genbank':
+                proteinIDsGenbank.append(row[0])
+                #sequence = getProteinSequenceFromGenbank(proteinID=row[0],apiKey=apiKey)
+            elif row[1]=='uniprot':
+                # sequence = getProteinSequenceFromUniprot(row[0])
+                proteinIDsUniprot.append(row[0])
+            else:
+                print(f'Database {row[1]} not supported yet',file=sys.stderr)	
+        seqsGenbank=getProteinSequenceFromGenbank(proteinIDs=proteinIDsGenbank,apiKey=apiKey)
+        print(seqsGenbank)
+        session.execute(updateStmt, seqsGenbank)
+        session.commit()
+        time.sleep(3)
+        updateProteinSequences(password=password, apiKey=apiKey)
+
+        # print(seqsGenbank)
+        # updateProteinSequences(password=password,apiKey=apiKey)
+    
+#Get seqeunces from UniProt
+def getProteinSequenceFromUniprot(proteinIDs, apiKey=None):
+    import sys
+    from io import StringIO
+    from Bio import SeqIO
+    
+    # seqsList=[]
+    # if(apiKey):
+    #     Entrez.email = "diego.riano@cena.usp.br"
+    #     Entrez.api_key = apiKey
+    #     searchRes = Entrez.read(Entrez.epost("protein", id=",".join(proteinIDs)))
+    #     webenv = searchRes["WebEnv"]
+    #     query_key = searchRes["QueryKey"]
+    #     fastaIO = StringIO(Entrez.efetch(
+    #             db="protein", 
+    #             rettype="fasta", 
+    #             retmode="text", 
+    #             webenv=webenv, 
+    #             query_key=query_key, 
+    #             api_key=apiKey).read()
+    #             )
+    #     seqsObj=SeqIO.parse(fastaIO,'fasta')
+    #     for seq in seqsObj:
+    #         seqsDict={}
+    #         proteinID=seq.id
+    #         sequence=str(seq.seq)
+    #         #if proteinID not in seqsDict:
+    #         #    seqsDict[proteinID]={}
+    #         seqsDict['proteinID']=proteinID
+    #         seqsDict['DB']='genbank'
+    #         seqsDict['sequence']=sequence
+    #         seqsList.append(seqsDict)
+    #         #updateProteinSequences(password=None,apiKey=apiKey,proteinID=proteinID,sequence=sequence)
+    #     fastaIO.close()
+    #     return seqsList
+    # else:
+    #     print(f'No API key provided for Entrez. Please provide one in the command line.',file=sys.stderr)
+
+#Get seqeunces from Genbank
+def getProteinSequenceFromGenbank(proteinIDs, apiKey=None):
+    import sys
+    from io import StringIO
+    from Bio import Entrez, SeqIO
+    import re
+    
+    seqsList=[]
+    if(apiKey):
+        Entrez.email = "diego.riano@cena.usp.br"
+        Entrez.api_key = apiKey
+        searchRes = Entrez.read(Entrez.epost("protein", id=",".join(proteinIDs)))
+        webenv = searchRes["WebEnv"]
+        query_key = searchRes["QueryKey"]
+        fastaIO = StringIO(Entrez.efetch(
+                db="protein", 
+                rettype="fasta", 
+                retmode="text", 
+                webenv=webenv, 
+                query_key=query_key, 
+                api_key=apiKey).read()
+                )
+        seqsObj=SeqIO.parse(fastaIO,'fasta')
+        for seq in seqsObj:
+            match=re.search(r'^sp\|([A-Z0-9.]*)\|.+$',seq.id,re.IGNORECASE)
+            if match:
+                proteinID=match.group(1)
+            else:
+                proteinID=seq.id
+            seqsDict={}
+            sequence=str(seq.seq)
+            #if proteinID not in seqsDict:
+            #    seqsDict[proteinID]={}
+            seqsDict['proteinID']=proteinID
+            seqsDict['DB']='genbank'
+            seqsDict['sequence']=sequence
+            seqsList.append(seqsDict)
+            #updateProteinSequences(password=None,apiKey=apiKey,proteinID=proteinID,sequence=sequence)
+        fastaIO.close()
+        return seqsList
+    else:
+        print(f'No API key provided for Entrez. Please provide one in the command line.',file=sys.stderr)
+#    print(f'Getting sequence for {proteinIDs} from Genbank')
 
 #Populate Genomes table with data from NCBI genomes
 def populateWebCAZyInfo(password=None,updateNCBITaxDB=False,infoFamily=None,enzymes=None,family=None):

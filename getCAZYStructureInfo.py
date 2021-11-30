@@ -17,7 +17,7 @@ parser.add_argument('--password', metavar='password', type=str, help='password f
 parser.add_argument('--dropDBCAZyTables', dest='dropDBCAZyTables', help='drop the tables related to CAZy web site from the database', default=False, action='store_true')
 parser.add_argument('--loadDB', dest='loadDB', help='load the database with CAZy website data', default=False, action='store_true')
 parser.add_argument('--updateNCBITaxDB', dest='updateNCBITaxDB', help='Update NCBI\'s taxonomy database', default=False, action='store_true')
-parser.add_argument('--typeFile', dest='typeFile', type=str, help='type fo page to downlaod, can be characterized or structure', default='structure', choices=['characterized', 'structure'])
+parser.add_argument('--typeFile', dest='typeFile', type=str, help='type fo page to downlaod, can be characterized or structure', default='structure', choices=['structure'])
 args= parser.parse_args()
 
 family= args.family.upper()

@@ -81,8 +81,8 @@ with open(fileInDisk) as fhand:
           #Organism is in the third column
           taxName=cols[2].text.strip()
           taxLink=cols[2].find('a')
-          print(taxName)
-          if not taxLink:
+          #print(taxName)
+          if not taxLink:#There are some PDB resolution that is passing here, for GH2, not sure why, this handles it.
             print(f'No link for {taxName}', file=sys.stderr)
             continue
           matchLink=re.search(r'http://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi\?id=([0-9]*)', taxLink.get('href'))

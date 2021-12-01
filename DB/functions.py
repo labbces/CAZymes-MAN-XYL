@@ -211,6 +211,7 @@ def downloadGenomeFiles(password=None, dirPath=None, fileType=None):
     import time
     import urllib.request
     import datetime
+    import platform
 
     Base = automap_base()
     Base.prepare(engine, reflect=True)
@@ -235,7 +236,10 @@ def downloadGenomeFiles(password=None, dirPath=None, fileType=None):
     if(rows):
         for row in rows:
             subDirs=row[1].replace('https://ftp.ncbi.nlm.nih.gov/genomes/all/','')
-            subDirs=subDirs.replace('/','\\')
+            if platform.system() == 'Windows':
+                subDirs=subDirs.replace('/','\\')
+            elif platform.system() == 'Linux':
+                subDirs=subDirs.replace('\\','/')
             urlFile=row[1]+'/'+row[2]
             completePath=path.join(dirPath,subDirs)
             completePathFile=path.join(completePath,row[2])

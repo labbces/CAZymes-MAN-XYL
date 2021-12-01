@@ -228,7 +228,7 @@ def downloadGenomeFiles(password=None, dirPath=None, fileType=None):
         print(f'Directory \'{dirPath}\' does not exists. Creating it.')
         mkdir(dirPath)
     #Get the list of genomes that have not been downloaded yet, 50 at the time (recursive)
-    getListOfGenomes2Download=select([Genomes.AssemblyAccession,Genomes.urlBase,GenomeFiles.FileName,GenomeFiles.ID]).join(GenomeFiles,Genomes.AssemblyAccession==GenomeFiles.AssemblyAccession).join(GenomeFileDownloaded,GenomeFiles.ID==GenomeFileDownloaded.GenomeFileID,isouter=True).where(GenomeFileDownloaded.ID==None).where(GenomeFiles.FileType=='Protein sequence').limit(5)
+    getListOfGenomes2Download=select([Genomes.AssemblyAccession,Genomes.urlBase,GenomeFiles.FileName,GenomeFiles.ID]).join(GenomeFiles,Genomes.AssemblyAccession==GenomeFiles.AssemblyAccession).join(GenomeFileDownloaded,GenomeFiles.ID==GenomeFileDownloaded.GenomeFileID,isouter=True).where(GenomeFileDownloaded.ID==None).where(GenomeFiles.FileType=='Protein sequence').limit(100)
     print(getListOfGenomes2Download)
     resultGetListOfGenomes2Download=session.execute(getListOfGenomes2Download)
     rows=resultGetListOfGenomes2Download.fetchall()

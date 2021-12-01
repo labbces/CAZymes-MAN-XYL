@@ -2,7 +2,7 @@
 
 #create connection object to mysql/mariadb database using sqlalchemy
 from re import I
-from sqlalchemy.sql.sqltypes import Enum
+from sqlalchemy.sql.sqltypes import Enum, String
 
 
 def connectDB(password=None):
@@ -192,14 +192,13 @@ def updateProteinSequences(password=None,apiKey=None):
         values(Sequence=bindparam('sequence'))
     )
 
-    getProteinSequences=select([ProteinSequences.ProteinID,ProteinSequences.Database]).where(ProteinSequences.Sequence==None).where(ProteinSequences.Database=='genbank').limit(50)
+    getProteinSequences=select([ProteinSequences.ProteinID,ProteinSequences.Database]).where(ProteinSequences.Sequence==None).limit(100)
     resultsGetProteinSequences=session.execute(getProteinSequences)
     rows=resultsGetProteinSequences.fetchall()
     proteinIDsGenbank=[]
     proteinIDsUniprot=[]
     if rows:
         for row in rows:
-            print(row)
             if row[1]=='genbank':
                 proteinIDsGenbank.append(row[0])
                 #sequence = getProteinSequenceFromGenbank(proteinID=row[0],apiKey=apiKey)
@@ -207,61 +206,63 @@ def updateProteinSequences(password=None,apiKey=None):
                 # sequence = getProteinSequenceFromUniprot(row[0])
                 proteinIDsUniprot.append(row[0])
             else:
-                print(f'Database {row[1]} not supported yet',file=sys.stderr)	
-        seqsGenbank=getProteinSequenceFromGenbank(proteinIDs=proteinIDsGenbank,apiKey=apiKey)
-        print(seqsGenbank)
-        session.execute(updateStmt, seqsGenbank)
+                print(f'Database {row[1]} not supported yet',file=sys.stderr)
+        if len(proteinIDsGenbank)>0:	
+            seqsGenbank=getProteinSequenceFromGenbank(proteinIDs=proteinIDsGenbank,apiKey=apiKey)
+            session.execute(updateStmt, seqsGenbank)
+        if len(proteinIDsUniprot)>0:
+            seqsUniprot=getProteinSequenceFromUniprot(proteinIDs=proteinIDsUniprot)
+            session.execute(updateStmt, seqsUniprot)
+        
         session.commit()
-        time.sleep(3)
         updateProteinSequences(password=password, apiKey=apiKey)
 
         # print(seqsGenbank)
         # updateProteinSequences(password=password,apiKey=apiKey)
     
 #Get seqeunces from UniProt
-def getProteinSequenceFromUniprot(proteinIDs, apiKey=None):
+def getProteinSequenceFromUniprot(proteinIDs=None):
     import sys
     from io import StringIO
     from Bio import SeqIO
+    import requests
+    import time
     
-    # seqsList=[]
-    # if(apiKey):
-    #     Entrez.email = "diego.riano@cena.usp.br"
-    #     Entrez.api_key = apiKey
-    #     searchRes = Entrez.read(Entrez.epost("protein", id=",".join(proteinIDs)))
-    #     webenv = searchRes["WebEnv"]
-    #     query_key = searchRes["QueryKey"]
-    #     fastaIO = StringIO(Entrez.efetch(
-    #             db="protein", 
-    #             rettype="fasta", 
-    #             retmode="text", 
-    #             webenv=webenv, 
-    #             query_key=query_key, 
-    #             api_key=apiKey).read()
-    #             )
-    #     seqsObj=SeqIO.parse(fastaIO,'fasta')
-    #     for seq in seqsObj:
-    #         seqsDict={}
-    #         proteinID=seq.id
-    #         sequence=str(seq.seq)
-    #         #if proteinID not in seqsDict:
-    #         #    seqsDict[proteinID]={}
-    #         seqsDict['proteinID']=proteinID
-    #         seqsDict['DB']='genbank'
-    #         seqsDict['sequence']=sequence
-    #         seqsList.append(seqsDict)
-    #         #updateProteinSequences(password=None,apiKey=apiKey,proteinID=proteinID,sequence=sequence)
-    #     fastaIO.close()
-    #     return seqsList
-    # else:
-    #     print(f'No API key provided for Entrez. Please provide one in the command line.',file=sys.stderr)
+    seqsList=[]
+    counter=0
+    baseUrl="http://www.uniprot.org/uniprot/"
 
+    for id in proteinIDs:
+        counter+=1
+        if counter%100==0:
+            time.sleep(3)
+        currentUrl=baseUrl+id+".fasta?version=*"
+        #print(currentUrl)
+        response = requests.post(currentUrl)
+        cData=''.join(response.text)
+        if cData:
+            fastaIO=StringIO(cData)
+            seqObj=SeqIO.parse(fastaIO,'fasta')
+            seqsDict={}
+            seqsDict['proteinID']=id
+            seqsDict['DB']='uniprot'
+            # print(seqsDict)
+            seqsDict['sequence']=str(next(seqObj).seq)
+            # print(seqsDict)
+            # print(seqObj)
+            seqsList.append(seqsDict)
+            fastaIO.close()
+        else:
+            print(f'No sequence found for {id}',file=sys.stderr)
+    return seqsList
+    
 #Get seqeunces from Genbank
 def getProteinSequenceFromGenbank(proteinIDs, apiKey=None):
     import sys
     from io import StringIO
     from Bio import Entrez, SeqIO
     import re
+    import time
     
     seqsList=[]
     if(apiKey):
@@ -295,6 +296,7 @@ def getProteinSequenceFromGenbank(proteinIDs, apiKey=None):
             seqsList.append(seqsDict)
             #updateProteinSequences(password=None,apiKey=apiKey,proteinID=proteinID,sequence=sequence)
         fastaIO.close()
+        time.sleep(3)
         return seqsList
     else:
         print(f'No API key provided for Entrez. Please provide one in the command line.',file=sys.stderr)

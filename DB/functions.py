@@ -1,6 +1,7 @@
 #Functions for XYLMAN project
 
 #create connection object to mysql/mariadb database using sqlalchemy
+from hashlib import md5
 from re import I
 from sqlalchemy.sql.sqltypes import Enum, String
 
@@ -23,7 +24,7 @@ def createDB(password=None):
     engine = connectDB(password)
     from sqlalchemy.ext.declarative import declarative_base
     from sqlalchemy.orm import relationship
-    from sqlalchemy import Column, Integer, String, ForeignKeyConstraint, PrimaryKeyConstraint, Text, Table, ForeignKey, UniqueConstraint
+    from sqlalchemy import Column, Integer, String, ForeignKeyConstraint, PrimaryKeyConstraint, Text, Date, ForeignKey, UniqueConstraint
     
     #create a table
     Base = declarative_base()
@@ -62,6 +63,18 @@ def createDB(password=None):
             UniqueConstraint(FileType, AssemblyAccession),
             {'mariadb_engine':'InnoDB'},
                     )
+    
+    class GenomeFileDownloaded(Base):
+        __tablename__ = 'GenomeFileDownloaded'
+        ID=Column(Integer, primary_key=True, autoincrement=True)
+        GenomeFileID = Column(Integer)
+        Action=Column(String(255))
+        ActionDate = Column(Date)
+        __table_args__ = (
+            ForeignKeyConstraint(['GenomeFileID'], ['GenomeFiles.ID']),
+            UniqueConstraint(GenomeFileID, Action, ActionDate),
+            {'mariadb_engine':'InnoDB'},
+        )
 
     class CazyFamily(Base):
         __tablename__ = 'CazyFamilies'
@@ -168,15 +181,126 @@ def dropDBWebCAZyTables(password=None):
         else:
             print(f'Table \'{tbl}\' does not exists yet in DB.. Cannot delete.')
 
-#Populate the ProteinSequences table - update, by getting the protein sequences from the Genbank/Uniprot and CAZy
+def computeMD5Sumfile(pathFile=None):
+    import hashlib
+    with open(pathFile, "rb") as f:
+        file_hash = hashlib.md5()
+        chunk = f.read(8192)
+        while chunk:
+            file_hash.update(chunk)
+            chunk = f.read(8192)
+    return file_hash.hexdigest()
 
+def getMD5sumFromFile(md5PathFile=None, target=None):
+    with open(md5PathFile, "r") as fmd5:
+        for line in fmd5:
+            line = line.rstrip()
+            fields = line.split()
+            if fields[1].replace('./','') == target:
+                md5sum = fields[0]
+                break
+    return md5sum
+
+def downloadGenomeFiles(password=None, dirPath=None, fileType=None):
+    engine = connectDB(password)
+    from sqlalchemy.orm import sessionmaker
+    from sqlalchemy import select, update, bindparam
+    from sqlalchemy.ext.automap import automap_base
+    import sys
+    from os import path, mkdir, makedirs,remove
+    import time
+    import urllib.request
+    import datetime
+
+    Base = automap_base()
+    Base.prepare(engine, reflect=True)
+    Session = sessionmaker(bind=engine)
+    session = Session()
+
+    Genomes = Base.classes.Genomes
+    GenomeFiles = Base.classes.GenomeFiles
+    GenomeFileDownloaded = Base.classes.GenomeFileDownloaded
+
+    if path.exists(dirPath):
+        print(f'Directory \'{dirPath}\' exists. OK.')	
+    else:
+        print(f'Directory \'{dirPath}\' does not exists. Creating it.')
+        mkdir(dirPath)
+    #Get the list of genomes that have not been downloaded yet, 50 at the time (recursive)
+    getListOfGenomes2Download=select([Genomes.AssemblyAccession,Genomes.urlBase,GenomeFiles.FileName,GenomeFiles.ID]).join(GenomeFiles,Genomes.AssemblyAccession==GenomeFiles.AssemblyAccession).join(GenomeFileDownloaded,GenomeFiles.ID==GenomeFileDownloaded.GenomeFileID,isouter=True).where(GenomeFileDownloaded.ID==None).where(GenomeFiles.FileType=='Protein sequence').limit(5)
+    print(getListOfGenomes2Download)
+    resultGetListOfGenomes2Download=session.execute(getListOfGenomes2Download)
+    rows=resultGetListOfGenomes2Download.fetchall()
+    counterFiles2Download=0
+    if(rows):
+        for row in rows:
+            subDirs=row[1].replace('https://ftp.ncbi.nlm.nih.gov/genomes/all/','')
+            subDirs=subDirs.replace('/','\\')
+            urlFile=row[1]+'/'+row[2]
+            completePath=path.join(dirPath,subDirs)
+            completePathFile=path.join(completePath,row[2])
+            completePathMD5File=path.join(completePath,'md5checksums.txt')
+            urlMD5File=row[1]+'/md5checksums.txt'
+            print(f'{urlFile}')
+            if path.exists(completePath):
+                print(f'Directory \'{completePath}\' exists. OK.')	
+            else:
+                print(f'Directory \'{completePath}\' does not exists. Creating it.')
+                makedirs(completePath)
+            if path.exists(completePathFile):
+                print(f'Genome file {row[2]} exists', file=sys.stderr)
+                md5sumLocalFile=computeMD5Sumfile(completePathFile)
+                if path.exists(completePathMD5File):
+                    md5sumRemoteFile=getMD5sumFromFile(completePathMD5File,row[2])
+                else:
+                    urllib.request.urlretrieve(urlMD5File, completePathMD5File)
+                    md5sumRemoteFile=getMD5sumFromFile(completePathMD5File,row[2])
+            else:
+                counterFiles2Download+=1
+                if counterFiles2Download % 10 == 0:
+                    time.sleep(1)
+                    session.commit()
+                print(f'Genome  file {row[2]}  does not exist,  start downloading', file=sys.stderr)
+                urllib.request.urlretrieve(urlFile, completePathFile)
+                urllib.request.urlretrieve(urlMD5File, completePathMD5File)
+                md5sumLocalFile=computeMD5Sumfile(completePathFile)
+                md5sumRemoteFile=getMD5sumFromFile(completePathMD5File,row[2])
+            if md5sumLocalFile != md5sumRemoteFile:
+                print(f'MD5 checksum of file {row[2]} does not match. Deleting file.', file=sys.stderr)
+                remove(completePathFile)
+            else:
+                print("Download complete", file=sys.stderr)
+                getGenomeFileDownloaded=select([GenomeFileDownloaded.GenomeFileID]).where(GenomeFileDownloaded.Action=='Downloaded').where(GenomeFileDownloaded.GenomeFileID==row[3])
+                resultsGetGenomeFileDownloaded=session.execute(getGenomeFileDownloaded)
+                if resultsGetGenomeFileDownloaded.fetchone() is None:
+                    print(f'Genome file {row[2]} downloaded. Inserting action \'Downloaded\' and date into DB.', file=sys.stderr)
+                    dateToday=datetime.date.today()
+                    session.add(GenomeFileDownloaded(GenomeFileID=row[3], Action='Downloaded', ActionDate=dateToday))
+                else:
+                    print(f'Genome file {row[2]} downloaded. Action \'Downloaded\' already in DB.', file=sys.stderr)
+    session.commit()
+    session.close()
+    downloadGenomeFiles(password=password, dirPath=dirPath, fileType=fileType)
+
+
+                    
+    # #These are the files to download:
+    # select c.*, a.ID, a.AssemblyAccession, a.FileType, b.urlBase, a.FileName
+    #  from Genomes as b JOIN GenomeFiles as a
+    #   ON a.AssemblyAccession=b.AssemblyAccession
+    #   LEFT JOIN GenomeFileDownloaded as c
+    #   ON a.ID=c.GenomeFileID 
+    #   where a.FileType='Protein sequence'
+    #   and c.GenomeFileID is null
+    #   limit 10;
+
+#Populate the ProteinSequences table - update, by getting the protein sequences from the Genbank/Uniprot and CAZy
 def updateProteinSequences(password=None,apiKey=None):
     engine = connectDB(password)
     from sqlalchemy.orm import sessionmaker
     from sqlalchemy import select, update, bindparam
     from sqlalchemy.ext.automap import automap_base
     import sys
-    import time
 
     Base = automap_base()
     Base.prepare(engine, reflect=True)

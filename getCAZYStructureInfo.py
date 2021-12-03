@@ -61,7 +61,7 @@ with open(fileInDisk) as fhand:
     if len(cols) >1:
       #proteinName is the first column
       proteinName=cols[0].text.strip()
-      if not re.match(r'[0-9A-Z]{4}\[[A-Z,]\]*', proteinName):#Ignore the data coming from the PDB data
+      if not re.match(r'[0-9A-Z]{4}\[[A-Z,]*\]', proteinName):#Ignore the data coming from the PDB data
         data={}
         subtable=row.find("table")
         if proteinName in data.keys():
@@ -135,7 +135,7 @@ with open(fileInDisk) as fhand:
           if len(cols) >1:
             #Getting PDB ids
             pdbAcc=cols[0].text.strip()
-            match=re.search(r'([0-9A-Z]{4})\[([0-9A-Z,]+)\]?', pdbAcc)
+            match=re.search(r'([0-9A-Z]{4})\[([0-9A-Za-z,]+)\]?', pdbAcc)
             if match:
               data[proteinName]['PDB'][match.group(1)]=match.group(2)
               #print(f'{match.group(1)} , {match.group(2)}')
@@ -159,11 +159,11 @@ with open(fileInDisk) as fhand:
         continue
       infoFamily[family][rowHeader.text.strip()].append(d)
 
-for pN in data.keys():
-  if 'ec' in data[pN].keys():
-    for ec in data[pN]['ec']:
-      True
-      # print(f'{pN} {ec}')
+# for pN in data.keys():
+#   if 'ec' in data[pN].keys():
+#     for ec in data[pN]['ec']:
+#       True
+#       # print(f'{pN} {ec}')
 
 if args.loadDB:
   updateNCBITaxDB=False

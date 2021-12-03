@@ -33,7 +33,7 @@ if args.dropDBCAZyTables:
     dropDBWebCAZyTables(args.password)
     createDB(args.password)
   else:
-    print(f'if you want to perform any operation on the DB you must provide a password.')
+    print(f'if you want to perform any operation on the DB you must provide a password.', file=sys.stderr)
     sys.exit()
 
 if exists(fileInDisk):
@@ -107,7 +107,7 @@ with open(fileInDisk) as fhand:
                 if taxName == 'Lacticaseibacillus plantarum':
                   data[proteinName]['taxID']='1590' 
                 else:
-                  print(f'{taxName} not found in taxonomy for protein {proteinName} in family {family}')
+                  print(f'{taxName} not found in taxonomy for protein {proteinName} in family {family}', file=sys.stderr)
               #print(f'sss {taxName} {name2taxID}')
           #Get subfamily numver when available:
           subFamily=''
@@ -140,7 +140,7 @@ with open(fileInDisk) as fhand:
               data[proteinName]['PDB'][match.group(1)]=match.group(2)
               #print(f'{match.group(1)} , {match.group(2)}')
             else:
-              print(f'{pdbAcc} does not have a know string format for protein {proteinName} in family {family}')
+              print(f'{pdbAcc} does not have a know string format for protein {proteinName} in family {family}', file=sys.stderr)
         enzymes.append(data)
   # print(enzymes)
   tableFamily = soup.find("table", attrs={'cellspacing':'1', 'cellpadding':'1', 'border':'0'})
@@ -167,5 +167,5 @@ if args.loadDB:
   if args.password:
     populateWebCAZyInfo(password=args.password,updateNCBITaxDB=updateNCBITaxDB,infoFamily=infoFamily,enzymes=enzymes,family=args.family)
   else:
-    print(f'if you want to perform any operation on the DB you must provide a password.')
+    print(f'if you want to perform any operation on the DB you must provide a password.', file=sys.stderr)
     sys.exit()

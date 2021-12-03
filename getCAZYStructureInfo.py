@@ -159,12 +159,6 @@ with open(fileInDisk) as fhand:
         continue
       infoFamily[family][rowHeader.text.strip()].append(d)
 
-# for pN in data.keys():
-#   if 'ec' in data[pN].keys():
-#     for ec in data[pN]['ec']:
-#       True
-#       # print(f'{pN} {ec}')
-
 if args.loadDB:
   updateNCBITaxDB=False
   if(args.updateNCBITaxDB):
@@ -175,93 +169,3 @@ if args.loadDB:
   else:
     print(f'if you want to perform any operation on the DB you must provide a password.')
     sys.exit()
-  
-  
-
-  # print(table.text)
-  # rows = table.find_all("tr", onmouseover="this.bgColor='#F8FFD5';")
-  # table_with_pdb = soup.find_all("table", border="0", width='100%')
-
-  # protein_column = list()
-  # EC_column = list()
-  # EC_link_column = list()
-  # Organism_column = list()
-  # Organism_link_column = list()
-  # Genbank_column = list()
-  # Genbank_link_column = list()
-  # Uniprot_column = list()
-  # Uniprot_link_column = list()
-
-  # for row in rows:
-  #       protein_name = row.find("td", id="separateur2").text
-  #       protein_column.append(protein_name)
-  # for row in rows:
-  #       EC = row.find_all("td")[1].text
-  #       if EC == "":
-  #         EC_column.append(NA)
-  #       else:
-  #         EC_column.append(EC)
-  #       try:
-  #         EC_link = row.find_all("td")[1].a['href']
-  #         EC_link_column.append(EC_link)
-  #       except:
-  #         EC_link_column.append("NaN")
-  # for row in rows:
-  #       try:
-  #         Organism = row.find_all("td")[2].text.strip()
-  #         Organism_column.append(Organism)
-  #         Organism_link = row.find_all("td")[2].a['href']
-  #         Organism_link_column.append(Organism_link)
-  #       except:
-  #         Organism_column.append("NaN")
-  #         Organism_column_link.append("NaN")
-
-  # for row in rows:
-  #         Genbank = row.find_all("td")[3].get_text(strip=True)
-  #         Genbank_column.append(Genbank)
-
-  # for row in rows:
-  #         try:
-  #           Genbank_link = row.find_all("td")[3].a['href']
-  #           Genbank_link_column.append(Genbank_link)
-  #         except:
-  #           Genbank_link_column.append("NaN")
-            
-  # for row in rows:
-  #         Uniprot = row.find_all("td")[4].get_text(strip=True)
-  #         Uniprot_column.append(Uniprot)   
-
-  # for row in rows:
-  #         try:
-  #           Uniprot_link = row.find_all("td")[4].a['href']
-  #           Uniprot_link_column.append(Uniprot_link)
-  #         except:
-  #           Uniprot_link_column.append("NaN")
-
-  # pdb_column = list()
-  # pdb_link_column = list()
-
-  # for table in table_with_pdb:
-  #     rows_pdb = table.find_all("tr", valign="top")
-  #     pdb_all = str()
-  #     pdb_link_all = str()
-  #     count = 0
-  #     for row in rows_pdb:
-  #       try:
-  #         pdb = row.find_all("td")[0].text
-  #         pdb_all = pdb_all + pdb + "\n"
-  #         pdb_link = row.find_all("td")[0].a['href']
-  #         pdb_link_all = pdb_link_all + pdb_link + "\n"
-  #         count += 1
-  #         if count < len(rows_pdb): continue
-  #         pdb_column.append(pdb_all)
-  #         pdb_link_column.append(pdb_link_all)
-  #       except:
-  #         pdb_column.append("NA")
-  #         pdb_link_column.append("NA")
-
-  # final_table = pd.DataFrame({"Protein Name" : protein_column, "EC" : EC_column, "EC_link" : EC_link_column, "Organism" : Organism_column, 
-  #                             "Organism_link" : Organism_link_column, "Genbank" : Genbank_column, "Genbank_link" : Genbank_link_column,
-  #                             "Uniprot" : Uniprot_column, "Uniprot_link" : Uniprot_link_column, "PDB" : pdb_column, "PDB_links" : pdb_link_column})
-
-  # final_file = final_table.to_csv("gh2_file_final.cvs", index=False)

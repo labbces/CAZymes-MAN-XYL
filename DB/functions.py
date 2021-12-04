@@ -76,6 +76,18 @@ def createDB(password=None):
             {'mariadb_engine':'InnoDB'},
         )
 
+    class Protein2GenomeFile(Base):
+        __tablename__ = 'Proteins2GenomeFile'
+        ID=Column(Integer, primary_key=True, autoincrement=True)
+        GenomeFileID = Column(Integer)
+        ProteinID=Column(String(255))
+        __table_args__ = (
+            ForeignKeyConstraint(['GenomeFileID'], ['GenomeFiles.ID']),
+            ForeignKeyConstraint(['ProteinID'], ['ProteinSequences.ProteinID']),
+            UniqueConstraint(GenomeFileID,ProteinID),
+            {'mariadb_engine':'InnoDB'},
+        )
+
     class CazyFamily(Base):
         __tablename__ = 'CazyFamilies'
         FamilyID = Column(String(10), primary_key=True)
@@ -91,7 +103,7 @@ def createDB(password=None):
         ID= Column(Integer, primary_key=True, autoincrement=True)
         FamilyID = Column(String(10))
         Key = Column(String(255))
-        Value = Column(String(255))
+        Value = Column(Text)
         __table_args__ = (
             ForeignKeyConstraint(['FamilyID'], ['CazyFamilies.FamilyID']),
             {'mariadb_engine':'InnoDB'},
@@ -200,6 +212,10 @@ def getMD5sumFromFile(md5PathFile=None, target=None):
                 md5sum = fields[0]
                 break
     return md5sum
+
+#Run dbCAN on the protein file and insert the results in the DB
+def predictCAZymes():
+    True
 
 def downloadGenomeFiles(password=None, dirPath=None, fileType=None):
     engine = connectDB(password)
@@ -512,7 +528,7 @@ def populateWebCAZyInfo(password=None,updateNCBITaxDB=False,infoFamily=None,enzy
             try:
                 lineage = ncbi.get_lineage(int(enzymes[inx][name]['taxID']))
             except:
-                print(f"Error: Missing TaxID from NCBI DB: {enzymes[inx][name]['taxID']}\n",file=sys.stderr)
+                print(f'Error: Missing TaxID from NCBI DB: {name}\n',file=sys.stderr)
                 continue
             if targetGroups.intersection(set(lineage)):
                 for index, i in enumerate(lineage):

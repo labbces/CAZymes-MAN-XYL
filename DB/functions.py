@@ -214,8 +214,50 @@ def getMD5sumFromFile(md5PathFile=None, target=None):
     return md5sum
 
 #Run dbCAN on the protein file and insert the results in the DB
-def predictCAZymes():
-    True
+def predictCAZymes(password=None,countIter=0):
+    engine = connectDB(password)
+    from sqlalchemy.orm import sessionmaker
+    from sqlalchemy.sql import text
+    from sqlalchemy import select, update, bindparam
+    from sqlalchemy.ext.automap import automap_base
+    import sys
+
+    Base = automap_base()
+    Base.prepare(engine, reflect=True)
+    Session = sessionmaker(bind=engine)
+    session = Session()
+
+    GenomeFiles = Base.classes.GenomeFiles
+    GenomeFileDownloaded = Base.classes.GenomeFileDownloaded
+    getGenomeFileIDsQuery=text('''SELECT cc.ID FROM
+(SELECT aa.ID FROM GenomeFiles as aa
+ JOIN GenomeFileDownloaded as bb 
+ ON aa.ID=bb.GenomeFileID
+ where aa.FileType='Protein sequence'
+ AND
+ bb.Action='Downloaded') as cc
+LEFT JOIN 
+(SELECT dd.GenomeFileID FROM GenomeFileDownloaded as dd
+WHERE dd.Action='Ran dbCAN') as ee
+ON cc.ID=ee.GenomeFileID
+WHERE ee.GenomeFileID is NULL limit 1000''')
+
+    
+    resultsGetGenomeFileIDs=session.execute(getGenomeFileIDsQuery)
+    rows=resultsGetGenomeFileIDs.fetchall()
+    print(countIter)
+    countRows=0
+    if rows:
+        for row in rows:
+            countRows+=1
+            if countRows % 300 == 0:
+                session.commit()
+            # True
+            session.add(GenomeFileDownloaded(GenomeFileID=row[0], Action='Ran dbCAN')) 
+        session.commit()
+
+    session.close()    
+    predictCAZymes(password=password,countIter=countIter+1)
 
 def downloadGenomeFiles(password=None, dirPath=None, fileType=None):
     engine = connectDB(password)

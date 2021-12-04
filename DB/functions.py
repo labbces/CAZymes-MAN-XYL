@@ -255,6 +255,8 @@ WHERE ee.GenomeFileID is NULL limit 1000''')
             # True
             session.add(GenomeFileDownloaded(GenomeFileID=row[0], Action='Ran dbCAN')) 
         session.commit()
+    else:
+        sys.exit('No more files to process')
 
     session.close()    
     predictCAZymes(password=password,countIter=countIter+1)

@@ -254,10 +254,10 @@ WHERE ee.GenomeFileID is NULL limit 1000''')
                 session.commit()
             # True
             session.add(GenomeFileDownloaded(GenomeFileID=row[0], Action='Ran dbCAN')) 
-        session.commit()
     else:
         sys.exit('No more files to process')
 
+    session.commit()
     session.close()    
     predictCAZymes(password=password,countIter=countIter+1)
 
@@ -342,6 +342,9 @@ def downloadGenomeFiles(password=None, dirPath=None, fileType=None):
                     session.add(GenomeFileDownloaded(GenomeFileID=row[3], Action='Downloaded', ActionDate=dateToday))
                 else:
                     print(f'Genome file {row[2]} downloaded. Action \'Downloaded\' already in DB.', file=sys.stderr)
+    else:
+        sys.exit('No more files to process')
+
     session.commit()
     session.close()
     downloadGenomeFiles(password=password, dirPath=dirPath, fileType=fileType)
@@ -401,9 +404,11 @@ def updateProteinSequences(password=None,apiKey=None):
         if len(proteinIDsUniprot)>0:
             seqsUniprot=getProteinSequenceFromUniprot(proteinIDs=proteinIDsUniprot)
             session.execute(updateStmt, seqsUniprot)
+    else:
+        sys.exit('No more proteins to process')
         
-        session.commit()
-        updateProteinSequences(password=password, apiKey=apiKey)
+    session.commit()
+    updateProteinSequences(password=password, apiKey=apiKey)
 
         # print(seqsGenbank)
         # updateProteinSequences(password=password,apiKey=apiKey)

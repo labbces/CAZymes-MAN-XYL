@@ -224,6 +224,7 @@ def submitCAZymeSearch(password=None,countIter=0,pathDir=None):
     import os
     from shutil import which
     import datetime
+    import time
 
     Base = automap_base()
     Base.prepare(engine, reflect=True)
@@ -284,6 +285,7 @@ WHERE ee.GenomeFileID is NULL limit 1000''')
             else:
                 print('qsub command not found..',file=sys.stderr)
         session.commit()
+        time.sleep(4)
     else:
         sys.exit('No more files to process')
 

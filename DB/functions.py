@@ -214,13 +214,16 @@ def getMD5sumFromFile(md5PathFile=None, target=None):
     return md5sum
 
 #Run dbCAN on the protein file and insert the results in the DB
-def predictCAZymes(password=None,countIter=0,pathDir=None):
+def submitCAZymeSearch(password=None,countIter=0,pathDir=None):
     engine = connectDB(password)
     from sqlalchemy.orm import sessionmaker
     from sqlalchemy.sql import text
     from sqlalchemy import select, update, bindparam
     from sqlalchemy.ext.automap import automap_base
     import sys
+    import os
+    from shutil import which
+    import datetime
 
     Base = automap_base()
     Base.prepare(engine, reflect=True)
@@ -240,7 +243,7 @@ def predictCAZymes(password=None,countIter=0,pathDir=None):
  bb.Action='Downloaded') as cc
 LEFT JOIN 
 (SELECT dd.GenomeFileID FROM GenomeFileDownloaded as dd
-WHERE dd.Action='Ran dbCAN') as ee
+WHERE dd.Action='submitted dbCAN search') as ee
 ON cc.ID=ee.GenomeFileID
 WHERE ee.GenomeFileID is NULL limit 1000''')
 
@@ -249,23 +252,46 @@ WHERE ee.GenomeFileID is NULL limit 1000''')
     rows=resultsGetGenomeFileIDs.fetchall()
     print(countIter)
     countRows=0
+    submitGenomeFiles=[]
     if rows:
-        for row in rows:
-            getGenomeInfo=select([GenomeFiles.FileName,GenomeFiles.ID,Genomes.urlBase]).where(Genomes.AssemblyAccession==GenomeFiles.AssemblyAccession).where(GenomeFiles.ID==row[0])
-            resultsGetGenomeInfo=session.execute(getGenomeInfo)
-            data=resultsGetGenomeInfo.fetchone()
-            if data:
-                print(f'Processing {data[0]}')
-            countRows+=1
-            if countRows % 300 == 0:
-                session.commit()
-            #session.add(GenomeFileDownloaded(GenomeFileID=row[0], Action='Ran dbCAN')) 
+        listFilesfilename=f'listFiles.'+str(countIter)+'.txt'
+        with open(listFilesfilename, 'w') as f:
+            for row in rows:
+                getGenomeInfo=select([GenomeFiles.FileName,GenomeFiles.ID,Genomes.urlBase]).where(Genomes.AssemblyAccession==GenomeFiles.AssemblyAccession).where(GenomeFiles.ID==row[0])
+                resultsGetGenomeInfo=session.execute(getGenomeInfo)
+                data=resultsGetGenomeInfo.fetchone()
+                if data:
+                    print(f'{countIter} {data}')
+                    subDirs=pathDir+'/'+data[2].replace('https://ftp.ncbi.nlm.nih.gov/genomes/all/','')
+                    filePath=subDirs+'/'+data[0]
+                    if os.path.isfile(filePath):
+                        print(f'Processing {subDirs} {filePath}')
+                        f.write(f'{filePath}\n')
+                        submitGenomeFiles.append(data[1])
+        submitScriptfilename=f'submitScript.'+str(countIter)+'.sh'
+        generateSubmissionScript(submitGenomeFiles,submitScriptfilename)
+        if os.path.isfile(listFilesfilename) and os.path.isfile(submitScriptfilename):
+            #submit to the cluster the dbCAN search
+            #fisrt check if we have the qsub command
+            if which('qsub') is not None:
+                countRows+=1
+                os.system(f'qsub {submitScriptfilename}')
+                for id in submitGenomeFiles:
+                    if countRows % 300 == 0:
+                        session.commit()
+                    dateToday=datetime.date.today()
+                    session.add(GenomeFileDownloaded(GenomeFileID=id, Action='submitted dbCAN search',ActionDate=dateToday)) #session.add(GenomeFileDownloaded(GenomeFileID=row[0], Action='submitted dbCAN search')) 
+            else:
+                print('qsub command not found..',file=sys.stderr)
     else:
         sys.exit('No more files to process')
 
     session.commit()
     session.close()    
-    predictCAZymes(password=password,countIter=countIter+1)
+    submitCAZymeSearch(password=password,countIter=countIter+1,pathDir=pathDir)
+
+def generateSubmissionScript(listGenomeFiles=None,submitScriptfilename=None):
+    True
 
 def downloadGenomeFiles(password=None, dirPath=None, fileType=None):
     engine = connectDB(password)
@@ -415,14 +441,13 @@ def updateProteinSequences(password=None,apiKey=None):
             seqsUniprot=getProteinSequenceFromUniprot(proteinIDs=proteinIDsUniprot)
             if seqsUniprot:
                 session.execute(updateStmt, seqsUniprot)
+                # session.commit()
     else:
         sys.exit('No more proteins to process')
         
     session.commit()
+    session.close()
     updateProteinSequences(password=password, apiKey=apiKey)
-
-        # print(seqsGenbank)
-        # updateProteinSequences(password=password,apiKey=apiKey)
     
 #Get seqeunces from UniProt
 def getProteinSequenceFromUniprot(proteinIDs=None):
@@ -494,6 +519,7 @@ def getProteinSequenceFromGenbank(proteinIDs, apiKey=None):
                 elif match.group(1) == '4K3A':
                     proteinID='550545166'
                 else:
+                    #this deals with th enormal case, when the id of the retrieve seq should match wit the ID stored in the DB
                     proteinID=match.group(1)
             else:
                 proteinID=seq.id

@@ -214,7 +214,7 @@ def getMD5sumFromFile(md5PathFile=None, target=None):
     return md5sum
 
 #Run dbCAN on the protein file and insert the results in the DB
-def predictCAZymes(password=None,countIter=0):
+def predictCAZymes(password=None,countIter=0,pathDir=None):
     engine = connectDB(password)
     from sqlalchemy.orm import sessionmaker
     from sqlalchemy.sql import text
@@ -229,6 +229,8 @@ def predictCAZymes(password=None,countIter=0):
 
     GenomeFiles = Base.classes.GenomeFiles
     GenomeFileDownloaded = Base.classes.GenomeFileDownloaded
+    Genomes = Base.classes.Genomes
+
     getGenomeFileIDsQuery=text('''SELECT cc.ID FROM
 (SELECT aa.ID FROM GenomeFiles as aa
  JOIN GenomeFileDownloaded as bb 
@@ -249,11 +251,15 @@ WHERE ee.GenomeFileID is NULL limit 1000''')
     countRows=0
     if rows:
         for row in rows:
+            getGenomeInfo=select([GenomeFiles.FileName,GenomeFiles.ID,Genomes.urlBase]).where(Genomes.AssemblyAccession==GenomeFiles.AssemblyAccession).where(GenomeFiles.ID==row[0])
+            resultsGetGenomeInfo=session.execute(getGenomeInfo)
+            data=resultsGetGenomeInfo.fetchone()
+            if data:
+                print(f'Processing {data[0]}')
             countRows+=1
             if countRows % 300 == 0:
                 session.commit()
-            # True
-            session.add(GenomeFileDownloaded(GenomeFileID=row[0], Action='Ran dbCAN')) 
+            #session.add(GenomeFileDownloaded(GenomeFileID=row[0], Action='Ran dbCAN')) 
     else:
         sys.exit('No more files to process')
 
@@ -398,12 +404,17 @@ def updateProteinSequences(password=None,apiKey=None):
                 proteinIDsUniprot.append(row[0])
             else:
                 print(f'Database {row[1]} not supported yet',file=sys.stderr)
-        if len(proteinIDsGenbank)>0:	
+        if len(proteinIDsGenbank)>0:
+            # print(f'Updating {len(proteinIDsGenbank)} {proteinIDsGenbank} protein sequences from genbank',file=sys.stderr)	
             seqsGenbank=getProteinSequenceFromGenbank(proteinIDs=proteinIDsGenbank,apiKey=apiKey)
-            session.execute(updateStmt, seqsGenbank)
+            # print(seqsGenbank,file=sys.stderr)
+            if seqsGenbank:
+                session.execute(updateStmt, seqsGenbank)
         if len(proteinIDsUniprot)>0:
+            # print(f'Updating {len(proteinIDsUniprot)} protein sequences from uniprot',file=sys.stderr)
             seqsUniprot=getProteinSequenceFromUniprot(proteinIDs=proteinIDsUniprot)
-            session.execute(updateStmt, seqsUniprot)
+            if seqsUniprot:
+                session.execute(updateStmt, seqsUniprot)
     else:
         sys.exit('No more proteins to process')
         
@@ -464,19 +475,26 @@ def getProteinSequenceFromGenbank(proteinIDs, apiKey=None):
         searchRes = Entrez.read(Entrez.epost("protein", id=",".join(proteinIDs)))
         webenv = searchRes["WebEnv"]
         query_key = searchRes["QueryKey"]
-        fastaIO = StringIO(Entrez.efetch(
-                db="protein", 
-                rettype="fasta", 
-                retmode="text", 
-                webenv=webenv, 
-                query_key=query_key, 
-                api_key=apiKey).read()
-                )
+        
+        try:
+            fastaIO = StringIO(Entrez.efetch(db="protein", rettype="fasta", retmode="text", webenv=webenv, query_key=query_key, api_key=apiKey).read())
+        except:
+            print(f'Error while getting sequences from Genbank for {proteinIDs}',file=sys.stderr)
+            return seqsList
+        
         seqsObj=SeqIO.parse(fastaIO,'fasta')
         for seq in seqsObj:
-            match=re.search(r'^sp\|([A-Z0-9.]*)\|.+$',seq.id,re.IGNORECASE)
+            # print(f'XXX:{seq.id}',file=sys.stderr)
+            match=re.search(r'^[a-z]*\|+([A-Z0-9.]*)(\|.+)?$',seq.id,re.IGNORECASE)
             if match:
-                proteinID=match.group(1)
+                # print('match')
+                #Dealing with weird cases, where the accession retrieved is different. Some specific cases.
+                if match.group(1) == '3PPS':
+                    proteinID='333361328'
+                elif match.group(1) == '4K3A':
+                    proteinID='550545166'
+                else:
+                    proteinID=match.group(1)
             else:
                 proteinID=seq.id
             seqsDict={}

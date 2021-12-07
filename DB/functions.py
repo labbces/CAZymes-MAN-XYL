@@ -307,6 +307,7 @@ def generateSubmissionScript(listGenomeFiles=None,submitScriptfilename=None,list
         f.write(f'cd $BASEDIR\n')
         f.write(f'gunzip $FILENAMEGZ\n')
         f.write('OUTDIR=${FILENAMEGZ/.faa.gz/_dbCAN}\n')
+        f.write(f'rm -rf $OUTDIR\n')
         f.write(f'run_dbcan.py --hmm_cpu $NSLOTS --hotpep_cpu $NSLOTS --tf_cpu $NSLOTS --stp_cpu $NSLOTS --dia_cpu $NSLOTS --out_dir $OUTDIR --db_dir /Storage/databases/dbCAN_V10/ $FILENAME protein\n')
         f.write(f'gzip $FILENAME\n')
 

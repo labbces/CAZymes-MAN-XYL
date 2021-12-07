@@ -250,7 +250,7 @@ WHERE ee.GenomeFileID is NULL limit 1000''')
     
     resultsGetGenomeFileIDs=session.execute(getGenomeFileIDsQuery)
     rows=resultsGetGenomeFileIDs.fetchall()
-    print(countIter)
+    # print(countIter)
     countRows=0
     submitGenomeFiles=[]
     if rows:
@@ -261,14 +261,14 @@ WHERE ee.GenomeFileID is NULL limit 1000''')
                 resultsGetGenomeInfo=session.execute(getGenomeInfo)
                 data=resultsGetGenomeInfo.fetchone()
                 if data:
-                    print(f'{countIter} {data}')
+                    # print(f'{countIter} {data}')
                     subDirs=pathDir+'/'+data[2].replace('https://ftp.ncbi.nlm.nih.gov/genomes/all/','')
                     filePath=subDirs+'/'+data[0]
                     if os.path.isfile(filePath):
-                        print(f'Processing {subDirs} {filePath}')
+                        # print(f'Processing {subDirs} {filePath}')
                         f.write(f'{filePath}\n')
                         submitGenomeFiles.append(data[1])
-        submitScriptfilename=f'submitScript.'+str(countIter)+'.sh'
+        submitScriptfilename=f'submitScript_runDbCAN.'+str(countIter)+'.sh'
         generateSubmissionScript(submitGenomeFiles,submitScriptfilename)
         if os.path.isfile(listFilesfilename) and os.path.isfile(submitScriptfilename):
             #submit to the cluster the dbCAN search
@@ -292,16 +292,7 @@ WHERE ee.GenomeFileID is NULL limit 1000''')
 
 def generateSubmissionScript(listGenomeFiles=None,submitScriptfilename=None):
     with open(submitScriptfilename, 'w') as f:
-        f.write("""
-#!/bin/bash\n
-#$ -cwd
-#$ -q all.q
-#$ -pe smp 4
-#$ -t 1-{len(listGenomeFiles)}\n
-
-FILE=$(head -n $SGE_TASK_ID {listFilesfilename} | tail -n 1)\n
-BASEDIR=$(dirname $FILE)\n
-""")
+        f.write(f'#!/bin/bash\n#$ -cwd\n#$ -q all.q\n#$ -pe smp 4\n#$ -t 1-{len(listGenomeFiles)}\n\nFILE=$(head -n $SGE_TASK_ID {listFilesfilename} | tail -n 1)\nBASEDIR=$(dirname $FILE)\n')
 
 def downloadGenomeFiles(password=None, dirPath=None, fileType=None):
     engine = connectDB(password)

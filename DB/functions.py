@@ -269,7 +269,7 @@ WHERE ee.GenomeFileID is NULL limit 1000''')
                         f.write(f'{filePath}\n')
                         submitGenomeFiles.append(data[1])
         submitScriptfilename=f'submitScript_runDbCAN.'+str(countIter)+'.sh'
-        generateSubmissionScript(submitGenomeFiles,submitScriptfilename)
+        generateSubmissionScript(submitGenomeFiles,submitScriptfilename,listFilesfilename)
         if os.path.isfile(listFilesfilename) and os.path.isfile(submitScriptfilename):
             #submit to the cluster the dbCAN search
             #fisrt check if we have the qsub command
@@ -290,7 +290,7 @@ WHERE ee.GenomeFileID is NULL limit 1000''')
     session.close()    
     submitCAZymeSearch(password=password,countIter=countIter+1,pathDir=pathDir)
 
-def generateSubmissionScript(listGenomeFiles=None,submitScriptfilename=None):
+def generateSubmissionScript(listGenomeFiles=None,submitScriptfilename=None,listFilesfilename=None):
     with open(submitScriptfilename, 'w') as f:
         f.write(f'#!/bin/bash\n#$ -cwd\n#$ -q all.q\n#$ -pe smp 4\n#$ -t 1-{len(listGenomeFiles)}\n\nFILE=$(head -n $SGE_TASK_ID {listFilesfilename} | tail -n 1)\nBASEDIR=$(dirname $FILE)\n')
 

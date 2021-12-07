@@ -293,11 +293,11 @@ WHERE ee.GenomeFileID is NULL limit 1000''')
 
 def generateSubmissionScript(listGenomeFiles=None,submitScriptfilename=None,listFilesfilename=None):
     with open(submitScriptfilename, 'w') as f:
-        f.write(f'#!/bin/bash\n#$ -cwd\n#$ -q all.q\n#$ -pe smp 4\n#$ -t 1-{len(listGenomeFiles)}\n\n')
+        f.write(f'#!/bin/bash\n#$ -cwd\n#$ -q all.q\n#$ -pe smp 4\n#$ -t 1-{len(listGenomeFiles)}\n#$ -tc 10\n')
         f.write(f'module load dbCAN/2.0.11\n')
         f.write(f'FILEPATH=$(head -n $SGE_TASK_ID {listFilesfilename} | tail -n 1)\n')
         f.write(f'BASEDIR=$(dirname $FILEPATH)\n')
-        f.write(f'echo $FILEPATH')
+        f.write(f'echo $FILEPATH\n')
         f.write(f'FILENAMEGZ=$(basename $FILEPATH)\n')
         f.write(f'FILENAME=$(FILENAMEGZ\.gz)\n')
         f.write(f'cd $BASEDIR\n')

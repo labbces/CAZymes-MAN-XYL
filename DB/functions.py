@@ -283,6 +283,7 @@ WHERE ee.GenomeFileID is NULL limit 1000''')
                     session.add(GenomeFileDownloaded(GenomeFileID=id, Action='submitted dbCAN search',ActionDate=dateToday)) #session.add(GenomeFileDownloaded(GenomeFileID=row[0], Action='submitted dbCAN search')) 
             else:
                 print('qsub command not found..',file=sys.stderr)
+        session.commit()
     else:
         sys.exit('No more files to process')
 
@@ -292,7 +293,19 @@ WHERE ee.GenomeFileID is NULL limit 1000''')
 
 def generateSubmissionScript(listGenomeFiles=None,submitScriptfilename=None,listFilesfilename=None):
     with open(submitScriptfilename, 'w') as f:
-        f.write(f'#!/bin/bash\n#$ -cwd\n#$ -q all.q\n#$ -pe smp 4\n#$ -t 1-{len(listGenomeFiles)}\n\nFILE=$(head -n $SGE_TASK_ID {listFilesfilename} | tail -n 1)\nBASEDIR=$(dirname $FILE)\n')
+        f.write(f'#!/bin/bash\n#$ -cwd\n#$ -q all.q\n#$ -pe smp 4\n#$ -t 1-{len(listGenomeFiles)}\n\n')
+        f.write(f'module load dbCAN/2.0.11\n')
+        f.write(f'FILEPATH=$(head -n $SGE_TASK_ID {listFilesfilename} | tail -n 1)\n')
+        f.write(f'BASEDIR=$(dirname $FILEPATH)\n')
+        f.write(f'echo $FILEPATH')
+        f.write(f'FILENAMEGZ=$(basename $FILEPATH)\n')
+        f.write(f'FILENAME=$(FILENAMEGZ\.gz)\n')
+        f.write(f'cd $BASEDIR\n')
+        f.write(f'gunzip $FILENAMEGZ\n')
+        f.write('OUTDIR=${FILENAMEGZ/.faa.gz/_dbCAN}\n')
+        f.write(f'run_dbcan.py --hmm_cpu $NSLOTS --hotpep_cpu $NSLOTS --tf_cpu $NSLOTS --stp_cpu $NSLOTS --dia_cpu $NSLOTS --out_dir $OUTDIR --db_dir /Storage/databases/dbCAN_V10/ $FILENAME protein\n')
+        f.write(f'gzip $FILENAME\n')
+
 
 def downloadGenomeFiles(password=None, dirPath=None, fileType=None):
     engine = connectDB(password)

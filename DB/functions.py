@@ -269,7 +269,7 @@ WHERE ee.GenomeFileID is NULL limit 1000''')
                         f.write(f'{filePath}\n')
                         submitGenomeFiles.append(data[1])
         submitScriptfilename=f'submitScript_runDbCAN.'+str(countIter)+'.sh'
-        generateSubmissionScript(submitGenomeFiles,submitScriptfilename,listFilesfilename)
+        generateSubmissionScript(submitGenomeFiles,submitScriptfilename,listFilesfilename,countIter)
         if os.path.isfile(listFilesfilename) and os.path.isfile(submitScriptfilename):
             #submit to the cluster the dbCAN search
             #fisrt check if we have the qsub command
@@ -291,7 +291,7 @@ WHERE ee.GenomeFileID is NULL limit 1000''')
     session.close()    
     submitCAZymeSearch(password=password,countIter=countIter+1,pathDir=pathDir)
 
-def generateSubmissionScript(listGenomeFiles=None,submitScriptfilename=None,listFilesfilename=None):
+def generateSubmissionScript(listGenomeFiles=None,submitScriptfilename=None,listFilesfilename=None,countIter=None):
     with open(submitScriptfilename, 'w') as f:
         f.write(f'#!/bin/bash\n#$ -cwd\n#$ -q all.q\n#$ -pe smp 4\n#$ -t 1-{len(listGenomeFiles)}\n#$ -tc 10\n')
         f.write(f'module load dbCAN/2.0.11\n')
@@ -299,7 +299,7 @@ def generateSubmissionScript(listGenomeFiles=None,submitScriptfilename=None,list
         f.write(f'BASEDIR=$(dirname $FILEPATH)\n')
         f.write(f'echo $FILEPATH\n')
         f.write(f'FILENAMEGZ=$(basename $FILEPATH)\n')
-        f.write(f'FILENAME=$(FILENAMEGZ\.gz)\n')
+        f.write('FILENAME=${FILENAMEGZ/.gz}\n')
         f.write(f'cd $BASEDIR\n')
         f.write(f'gunzip $FILENAMEGZ\n')
         f.write('OUTDIR=${FILENAMEGZ/.faa.gz/_dbCAN}\n')

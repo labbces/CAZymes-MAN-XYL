@@ -292,15 +292,16 @@ WHERE ee.GenomeFileID is NULL limit 1000''')
 
 def generateSubmissionScript(listGenomeFiles=None,submitScriptfilename=None):
     with open(submitScriptfilename, 'w') as f:
-        f.write('''#!/bin/bash\n
-        #$ -cwd
-        #$ -q all.q
-        #$ -pe smp 4
-        #$ -t 1-{len(listGenomeFiles)}\n
+        f.write("""
+#!/bin/bash\n
+#$ -cwd
+#$ -q all.q
+#$ -pe smp 4
+#$ -t 1-{len(listGenomeFiles)}\n
 
-        FILE=$(head -n $SGE_TASK_ID {listFilesfilename} | tail -n 1)\n
-        BASEDIR=$(dirname $FILE)\n
-        ''')
+FILE=$(head -n $SGE_TASK_ID {listFilesfilename} | tail -n 1)\n
+BASEDIR=$(dirname $FILE)\n
+""")
 
 def downloadGenomeFiles(password=None, dirPath=None, fileType=None):
     engine = connectDB(password)

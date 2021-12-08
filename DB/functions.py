@@ -291,7 +291,7 @@ WHERE ee.GenomeFileID is NULL''')
                         resultsCheckGenomeFileDownloaded=session.execute(checkGenomeFileDownloaded)
                         if resultsCheckGenomeFileDownloaded.fetchone() is None:
                             dateToday=datetime.date.today()
-                            session.add(GenomeFileDownloaded(GenomeFileID=row[1],Action='Ran dbCAN search',ActionDate=dateToday))
+                            session.add(GenomeFileDownloaded(GenomeFileID=data[1],Action='Ran dbCAN search',ActionDate=dateToday))
                         with open(resFile, "r") as file:
                             for line in file:
                                 if not line.startswith('Gene ID'):
@@ -358,7 +358,7 @@ WHERE ee.GenomeFileID is NULL''')
                                             #print(f'{protID}\t{fastaRecords[protID].seq}\t{fam}\t{list(cazymes[fam].keys())}')
                                     #print(f'{protID},{hmmerRes},{HotpepRes},{DiamondRes}')
                         if loadSeqsFam>0:
-                            checkGenomeFileDownloaded2=select(GenomeFileDownloaded).where(GenomeFileDownloaded.GenomeFileID==row[1]).where(GenomeFileDownloaded.Action=='Load dbCAN search')
+                            checkGenomeFileDownloaded2=select(GenomeFileDownloaded).where(GenomeFileDownloaded.GenomeFileID==data[1]).where(GenomeFileDownloaded.Action=='Load dbCAN search')
                             resultsCheckGenomeFileDownloaded2=session.execute(checkGenomeFileDownloaded2)
                             if resultsCheckGenomeFileDownloaded2.fetchedone() is None:
                                 dateToday=datetime.date.today()

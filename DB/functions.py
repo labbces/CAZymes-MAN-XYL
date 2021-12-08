@@ -116,18 +116,20 @@ def createDB(password=None):
         Sequence  = Column(Text)
         HashSequence= Column(String(255))
         CazyFamilies = relationship("ProteinSequence2CazyFamily",
-                                back_populates="ProteinSeq")
+                               back_populates="ProteinSeq")
         __table_args__ = (
             {'mariadb_engine':'InnoDB'},
         )
 
     class ProteinSequence2CazyFamily(Base):
         __tablename__ = 'ProteinSequence2CazyFamily'
-        CazyFamilyID = Column(String(10), ForeignKey('CazyFamilies.FamilyID'), primary_key=True)
-        ProteinID = Column(String(255), ForeignKey('ProteinSequences.ProteinID'), primary_key=True)
+        ID=Column(Integer, primary_key=True, autoincrement=True)
+        CazyFamilyID = Column(String(10), ForeignKey('CazyFamilies.FamilyID'))
+        ProteinID = Column(String(255), ForeignKey('ProteinSequences.ProteinID'))
         CazyFam = relationship("CazyFamily",back_populates='ProteinSequences')
         ProteinSeq = relationship("ProteinSequence",back_populates='CazyFamilies')
         __table_args__ = (
+            UniqueConstraint(CazyFamilyID,ProteinID),
             {'mariadb_engine':'InnoDB'},
         )    
     
@@ -223,6 +225,18 @@ def loadDbCANResults(password=None,pathDir=None):
     import sys
     import os
     import datetime
+    import re
+    import gzip
+    from Bio import SeqIO
+
+    CAZymeClass={
+    'GH':'Glycoside Hydrolases',
+    'GT':'GlycosylTransferases',
+    'PL':'Polysaccharide Lyases',
+    'CE':'Carbohydrate Esterases',
+    'AA':'Auxiliary Activities',
+    'CBM':'Carbohydrate Binding Modules'
+    }
 
     Base = automap_base()
     Base.prepare(engine, reflect=True)
@@ -232,6 +246,10 @@ def loadDbCANResults(password=None,pathDir=None):
     GenomeFiles = Base.classes.GenomeFiles
     GenomeFileDownloaded = Base.classes.GenomeFileDownloaded
     Genomes = Base.classes.Genomes
+    CazyFamilies = Base.classes.CazyFamilies
+    ProteinSequence = Base.classes.ProteinSequences 
+    Proteins2GenomeFile = Base.classes.Proteins2GenomeFile
+    ProteinSequence2CazyFamily = Base.classes.ProteinSequence2CazyFamily
 
     getGenomeFileIDsQuery=text('''SELECT cc.ID FROM
 (SELECT aa.ID FROM GenomeFiles as aa
@@ -244,12 +262,12 @@ LEFT JOIN
 (SELECT dd.GenomeFileID FROM GenomeFileDownloaded as dd
 WHERE dd.Action='Load dbCAN search') as ee
 ON cc.ID=ee.GenomeFileID
-WHERE ee.GenomeFileID is NULL limit 10''')
+WHERE ee.GenomeFileID is NULL''')
 
     #Get the list of GenomeFileID that appear to have been submitted to dbCAN search
     resultsGetGenomeFileIDs=session.execute(getGenomeFileIDsQuery)
     rows=resultsGetGenomeFileIDs.fetchall()
-    countRows=0
+    countProts=0
     submittedGenomeFiles=[]
     if rows:
         for row in rows:
@@ -259,22 +277,83 @@ WHERE ee.GenomeFileID is NULL limit 10''')
             if data:
                 # print(f'{countIter} {data}')
                 dirPath=pathDir+'/'+data[2].replace('https://ftp.ncbi.nlm.nih.gov/genomes/all/','')+'/'+data[0]
+                fastagzPath=pathDir+'/'+data[2].replace('https://ftp.ncbi.nlm.nih.gov/genomes/all/','')+'/'+data[0]
                 dirPath=dirPath.replace('.faa.gz','_dbCAN')
                 if os.path.isdir(dirPath):
                     resFile=dirPath+'/overview.txt'
+                    #Check if dbCAN results are available
                     if os.path.isfile(resFile):
-                        with open(resFile, "r") as f:
-                            for line in f:
-                                line=line.rstrip()
+                        #if dbCAN results available load protein sequence in SeqIO
+                        with gzip.open(fastagzPath, "rt") as fastaHandle:
+                            fastaRecords = SeqIO.to_dict(SeqIO.parse(fastaHandle, "fasta"))
+                        with open(resFile, "r") as file:
+                            for line in file:
                                 if not line.startswith('Gene ID'):
-                                    fields=line.split('\t')
-                                    print(fields)
-
-
-                    print(dirPath)
-                    # print(f'Processing {subDirs} {filePath}')
-                    True
-
+                                    cazymes={}
+                                    line=line.rstrip()
+                                    protID,hmmerRes,HotpepRes,DiamondRes,nn=line.split('\t')
+                                    if hmmerRes!='-':
+                                        hmmerItems=hmmerRes.split('+')
+                                        for hmmerItem in hmmerItems:
+                                            hmmerItem=re.sub('\([0-9-]*\)','',hmmerItem).split('_')[0]
+                                            # print(hmmerItem)
+                                            if hmmerItem not in cazymes:
+                                                cazymes[hmmerItem]={}
+                                            cazymes[hmmerItem]['hmmer']=1
+                                    if HotpepRes!='-':
+                                        hotpepItems=HotpepRes.split('+')
+                                        for hotpepItem in hotpepItems:
+                                            hotpepItem=re.sub('\([0-9-]*\)','',hotpepItem).split('_')[0]
+                                            # print(hotpepItem)
+                                            if hotpepItem not in cazymes:
+                                                cazymes[hotpepItem]={}
+                                            cazymes[hotpepItem]['hotpep']=1
+                                    if DiamondRes!='-':
+                                        diamondItems=DiamondRes.split('+')
+                                        for diamondItem in diamondItems:
+                                            diamondItem=re.sub('\([0-9-]*\)','',hotpepItem).split('_')[0]
+                                            # print(diamondItem)
+                                            if diamondItem not in cazymes:
+                                                cazymes[diamondItem]={}
+                                            cazymes[diamondItem]['diamond']=1
+                                    for fam in cazymes.keys():
+                                        #The family should have been predicted by at least two tools
+                                        if len(cazymes[fam])>1:
+                                            countProts+=1
+                                            if countProts % 100 == 0:
+                                                session.commit()
+                                            checkFamily=select(CazyFamilies).where(CazyFamilies.FamilyID==fam)
+                                            resultsCheckFamily=session.execute(checkFamily)
+                                            #If the family is not in DB, there are some 0 families e.g. GH0 predicted by dbCAN that are not present in CAZy, this will deal with that.
+                                            if resultsCheckFamily.fetchone() is None:
+                                                print(f'Adding family into DB: {CAZymeClass[re.sub("[0-9]*$","",fam)]} {fam}', file=sys.stderr)
+                                                session.add(CazyFamilies(FamilyID=fam, FamilyClass=CAZymeClass[re.sub("[0-9]*$","",fam)]))
+                                                # session.commit()
+                                            checkProteinSequence=select(ProteinSequence).where(ProteinSequence.ProteinID==protID)
+                                            resultsCheckProteinSequence=session.execute(checkProteinSequence)
+                                            if resultsCheckProteinSequence.fetchone() is None:
+                                                print(f'Adding protein sequence into DB: {protID}', file=sys.stderr)
+                                                session.add(ProteinSequence(ProteinID=protID, Database='genbank',Sequence=fastaRecords[protID].seq))
+                                                # session.commit()
+                                            checkProteins2GenomeFile=select(Proteins2GenomeFile).where(Proteins2GenomeFile.GenomeFileID==data[1]).where(Proteins2GenomeFile.ProteinID==protID)
+                                            resultsCheckProteins2GenomeFile=session.execute(checkProteins2GenomeFile)
+                                            if resultsCheckProteins2GenomeFile.fetchone() is None:
+                                                print(f'Adding protein to genome file into DB: {protID}', file=sys.stderr)
+                                                session.add(Proteins2GenomeFile(GenomeFileID=data[1], ProteinID=protID))
+                                                # session.commit()
+                                            checkProteinSequence2CazyFamily=select(ProteinSequence2CazyFamily).where(ProteinSequence2CazyFamily.ProteinID==protID).where(ProteinSequence2CazyFamily.CazyFamilyID==fam)
+                                            resultsCheckProteinSequence2CazyFamily=session.execute(checkProteinSequence2CazyFamily)
+                                            if resultsCheckProteinSequence2CazyFamily.fetchone() is None:
+                                                print(f'Adding protein to family into DB: {protID} {fam}', file=sys.stderr)
+                                                session.add(ProteinSequence2CazyFamily(ProteinID=protID, CazyFamilyID=fam))
+                                                # session.commit()
+                                            #print(f'{protID}\t{fastaRecords[protID].seq}\t{fam}\t{list(cazymes[fam].keys())}')
+                                    #print(f'{protID},{hmmerRes},{HotpepRes},{DiamondRes}')
+    else:
+        sys.exit('No more files to process')
+    #loadDbCANResults(password=password,pathDir=pathDir)
+    session.commit()
+    session.close()
 #Run dbCAN on the protein file 
 def submitCAZymeSearch(password=None,countIter=0,pathDir=None):
     engine = connectDB(password)

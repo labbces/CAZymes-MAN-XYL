@@ -6,5 +6,6 @@ parser.add_argument('--password', metavar='password', type=str, help='password f
 parser.add_argument('--pathDir', dest='pathDir', type=str, help='Base path where Genome files were downloaded')
 args= parser.parse_args()
 
-createDB(args.password)
-submitCAZymeSearch(password=args.password,countIter=0,pathDir='../GenomeFiles')
+#createDB(args.password)
+#submitCAZymeSearch(password=args.password,countIter=0,pathDir=args.pathDir)
+loadDbCANResults(password=args.password,pathDir=args.pathDir)

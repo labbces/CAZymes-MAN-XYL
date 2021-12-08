@@ -213,7 +213,69 @@ def getMD5sumFromFile(md5PathFile=None, target=None):
                 break
     return md5sum
 
-#Run dbCAN on the protein file and insert the results in the DB
+#Load dbCAN results in DB
+def loadDbCANResults(password=None,pathDir=None):
+    engine = connectDB(password)
+    from sqlalchemy.orm import sessionmaker
+    from sqlalchemy.sql import text
+    from sqlalchemy import select, update, bindparam
+    from sqlalchemy.ext.automap import automap_base
+    import sys
+    import os
+    import datetime
+
+    Base = automap_base()
+    Base.prepare(engine, reflect=True)
+    Session = sessionmaker(bind=engine)
+    session = Session()
+
+    GenomeFiles = Base.classes.GenomeFiles
+    GenomeFileDownloaded = Base.classes.GenomeFileDownloaded
+    Genomes = Base.classes.Genomes
+
+    getGenomeFileIDsQuery=text('''SELECT cc.ID FROM
+(SELECT aa.ID FROM GenomeFiles as aa
+ JOIN GenomeFileDownloaded as bb 
+ ON aa.ID=bb.GenomeFileID
+ where aa.FileType='Protein sequence'
+ AND
+ bb.Action='submitted dbCAN search') as cc
+LEFT JOIN 
+(SELECT dd.GenomeFileID FROM GenomeFileDownloaded as dd
+WHERE dd.Action='Load dbCAN search') as ee
+ON cc.ID=ee.GenomeFileID
+WHERE ee.GenomeFileID is NULL limit 10''')
+
+    #Get the list of GenomeFileID that appear to have been submitted to dbCAN search
+    resultsGetGenomeFileIDs=session.execute(getGenomeFileIDsQuery)
+    rows=resultsGetGenomeFileIDs.fetchall()
+    countRows=0
+    submittedGenomeFiles=[]
+    if rows:
+        for row in rows:
+            getGenomeInfo=select([GenomeFiles.FileName,GenomeFiles.ID,Genomes.urlBase]).where(Genomes.AssemblyAccession==GenomeFiles.AssemblyAccession).where(GenomeFiles.ID==row[0])
+            resultsGetGenomeInfo=session.execute(getGenomeInfo)
+            data=resultsGetGenomeInfo.fetchone()
+            if data:
+                # print(f'{countIter} {data}')
+                dirPath=pathDir+'/'+data[2].replace('https://ftp.ncbi.nlm.nih.gov/genomes/all/','')+'/'+data[0]
+                dirPath=dirPath.replace('.faa.gz','_dbCAN')
+                if os.path.isdir(dirPath):
+                    resFile=dirPath+'/overview.txt'
+                    if os.path.isfile(resFile):
+                        with open(resFile, "r") as f:
+                            for line in f:
+                                line=line.rstrip()
+                                if not line.startswith('Gene ID'):
+                                    fields=line.split('\t')
+                                    print(fields)
+
+
+                    print(dirPath)
+                    # print(f'Processing {subDirs} {filePath}')
+                    True
+
+#Run dbCAN on the protein file 
 def submitCAZymeSearch(password=None,countIter=0,pathDir=None):
     engine = connectDB(password)
     from sqlalchemy.orm import sessionmaker

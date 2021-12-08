@@ -287,7 +287,7 @@ WHERE ee.GenomeFileID is NULL''')
                         with gzip.open(fastagzPath, "rt") as fastaHandle:
                             fastaRecords = SeqIO.to_dict(SeqIO.parse(fastaHandle, "fasta"))
                         #id dbCAN results are available insert action into DB
-                        checkGenomeFileDownloaded=select(GenomeFileDownloaded).where(GenomeFileDownloaded.GenomeFileID==row[1]).where(GenomeFileDownloaded.Action=='Ran dbCAN search')
+                        checkGenomeFileDownloaded=select(GenomeFileDownloaded).where(GenomeFileDownloaded.GenomeFileID==data[1]).where(GenomeFileDownloaded.Action=='Ran dbCAN search')
                         resultsCheckGenomeFileDownloaded=session.execute(checkGenomeFileDownloaded)
                         if resultsCheckGenomeFileDownloaded.fetchedone() is None:
                             dateToday=datetime.date.today()
@@ -357,12 +357,12 @@ WHERE ee.GenomeFileID is NULL''')
                                                 # session.commit()
                                             #print(f'{protID}\t{fastaRecords[protID].seq}\t{fam}\t{list(cazymes[fam].keys())}')
                                     #print(f'{protID},{hmmerRes},{HotpepRes},{DiamondRes}')
-                                if loadSeqsFam>0:
-                                    checkGenomeFileDownloaded2=select(GenomeFileDownloaded).where(GenomeFileDownloaded.GenomeFileID==row[1]).where(GenomeFileDownloaded.Action=='Load dbCAN search')
-                                    resultsCheckGenomeFileDownloaded2=session.execute(checkGenomeFileDownloaded2)
-                                    if resultsCheckGenomeFileDownloaded2.fetchedone() is None:
-                                        dateToday=datetime.date.today()
-                                        session.add(GenomeFileDownloaded(GenomeFileID=row[1],Action='Load dbCAN search',ActionDate=dateToday))
+                        if loadSeqsFam>0:
+                            checkGenomeFileDownloaded2=select(GenomeFileDownloaded).where(GenomeFileDownloaded.GenomeFileID==row[1]).where(GenomeFileDownloaded.Action=='Load dbCAN search')
+                            resultsCheckGenomeFileDownloaded2=session.execute(checkGenomeFileDownloaded2)
+                            if resultsCheckGenomeFileDownloaded2.fetchedone() is None:
+                                dateToday=datetime.date.today()
+                                session.add(GenomeFileDownloaded(GenomeFileID=data[1],Action='Load dbCAN search',ActionDate=dateToday))
     else:
         sys.exit('No more files to process')
     #loadDbCANResults(password=password,pathDir=pathDir)

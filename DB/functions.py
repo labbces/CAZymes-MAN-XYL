@@ -286,10 +286,17 @@ WHERE ee.GenomeFileID is NULL''')
                         #if dbCAN results available load protein sequence in SeqIO
                         with gzip.open(fastagzPath, "rt") as fastaHandle:
                             fastaRecords = SeqIO.to_dict(SeqIO.parse(fastaHandle, "fasta"))
+                        #id dbCAN results are available insert action into DB
+                        checkGenomeFileDownloaded=select(GenomeFileDownloaded).where(GenomeFileDownloaded.GenomeFileID==row[1]).where(GenomeFileDownloaded.Action=='Ran dbCAN search')
+                        resultsCheckGenomeFileDownloaded=session.execute(checkGenomeFileDownloaded)
+                        if resultsCheckGenomeFileDownloaded.fetchedone() is None:
+                            dateToday=datetime.date.today()
+                            session.add(GenomeFileDownloaded(GenomeFileID=row[1],Action='Ran dbCAN search',ActionDate=dateToday))
                         with open(resFile, "r") as file:
                             for line in file:
                                 if not line.startswith('Gene ID'):
                                     cazymes={}
+                                    loadSeqsFam=0
                                     line=line.rstrip()
                                     protID,hmmerRes,HotpepRes,DiamondRes,nn=line.split('\t')
                                     if hmmerRes!='-':
@@ -344,11 +351,18 @@ WHERE ee.GenomeFileID is NULL''')
                                             checkProteinSequence2CazyFamily=select(ProteinSequence2CazyFamily).where(ProteinSequence2CazyFamily.ProteinID==protID).where(ProteinSequence2CazyFamily.CazyFamilyID==fam)
                                             resultsCheckProteinSequence2CazyFamily=session.execute(checkProteinSequence2CazyFamily)
                                             if resultsCheckProteinSequence2CazyFamily.fetchone() is None:
+                                                loadSeqsFam+=1
                                                 print(f'Adding protein to family into DB: {protID} {fam}', file=sys.stderr)
                                                 session.add(ProteinSequence2CazyFamily(ProteinID=protID, CazyFamilyID=fam))
                                                 # session.commit()
                                             #print(f'{protID}\t{fastaRecords[protID].seq}\t{fam}\t{list(cazymes[fam].keys())}')
                                     #print(f'{protID},{hmmerRes},{HotpepRes},{DiamondRes}')
+                                if loadSeqsFam>0:
+                                    checkGenomeFileDownloaded2=select(GenomeFileDownloaded).where(GenomeFileDownloaded.GenomeFileID==row[1]).where(GenomeFileDownloaded.Action=='Load dbCAN search')
+                                    resultsCheckGenomeFileDownloaded2=session.execute(checkGenomeFileDownloaded2)
+                                    if resultsCheckGenomeFileDownloaded2.fetchedone() is None:
+                                        dateToday=datetime.date.today()
+                                        session.add(GenomeFileDownloaded(GenomeFileID=row[1],Action='Load dbCAN search',ActionDate=dateToday))
     else:
         sys.exit('No more files to process')
     #loadDbCANResults(password=password,pathDir=pathDir)

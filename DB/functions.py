@@ -289,7 +289,7 @@ WHERE ee.GenomeFileID is NULL''')
                         #id dbCAN results are available insert action into DB
                         checkGenomeFileDownloaded=select(GenomeFileDownloaded).where(GenomeFileDownloaded.GenomeFileID==data[1]).where(GenomeFileDownloaded.Action=='Ran dbCAN search')
                         resultsCheckGenomeFileDownloaded=session.execute(checkGenomeFileDownloaded)
-                        if resultsCheckGenomeFileDownloaded.fetchedone() is None:
+                        if resultsCheckGenomeFileDownloaded.fetchone() is None:
                             dateToday=datetime.date.today()
                             session.add(GenomeFileDownloaded(GenomeFileID=row[1],Action='Ran dbCAN search',ActionDate=dateToday))
                         with open(resFile, "r") as file:

@@ -532,7 +532,7 @@ def downloadGenomeFiles(password=None, dirPath=None, fileType=None):
                 if counterFiles2Download % 10 == 0:
                     time.sleep(1)
                     session.commit()
-                print(f'Genome  file {row[2]}  does not exist,  start downloading', file=sys.stderr)
+                print(f'Genome  file {row[2]}  does not exist,  start downloading', file=sys.stdout)
                 urllib.request.urlretrieve(urlFile, completePathFile)
                 urllib.request.urlretrieve(urlMD5File, completePathMD5File)
                 md5sumLocalFile=computeMD5Sumfile(completePathFile)
@@ -545,11 +545,11 @@ def downloadGenomeFiles(password=None, dirPath=None, fileType=None):
                 getGenomeFileDownloaded=select([GenomeFileDownloaded.GenomeFileID]).where(GenomeFileDownloaded.Action=='Downloaded').where(GenomeFileDownloaded.GenomeFileID==row[3])
                 resultsGetGenomeFileDownloaded=session.execute(getGenomeFileDownloaded)
                 if resultsGetGenomeFileDownloaded.fetchone() is None:
-                    print(f'Genome file {row[2]} downloaded. Inserting action \'Downloaded\' and date into DB.', file=sys.stderr)
+                    print(f'Genome file {row[2]} downloaded. Inserting action \'Downloaded\' and date into DB.', file=sys.stdout)
                     dateToday=datetime.date.today()
                     session.add(GenomeFileDownloaded(GenomeFileID=row[3], Action='Downloaded', ActionDate=dateToday))
                 else:
-                    print(f'Genome file {row[2]} downloaded. Action \'Downloaded\' already in DB.', file=sys.stderr)
+                    print(f'Genome file {row[2]} downloaded. Action \'Downloaded\' already in DB.', file=sys.stdout)
     else:
         sys.exit('No more files to process')
 
@@ -993,28 +993,31 @@ def populateGenomes(url,password=None,updateNCBITaxDB=False,typeOrg='euk'):
                             FTP_USER = "anonymous"
                             FTP_PASS = ""
                             FTP_HOST = "ftp.ncbi.nlm.nih.gov"
-                            ftp = ftplib.FTP(FTP_HOST, FTP_USER, FTP_PASS)
-                            ftp.cwd(f'genomes/all/{acc[0:3]}/{acc[4:7]}/{acc[7:10]}/{acc[10:13]}/')
-                            for asm in ftp.nlst():
-                                if asm.startswith(fields[assemblyAccessionIndex]):
-                                    url=f'https://ftp.ncbi.nlm.nih.gov/genomes/all/{acc[0:3]}/{acc[4:7]}/{acc[7:10]}/{acc[10:13]}/{asm}'
-                                    # print(f'{acc}\t{ver}\t{asm}\t{url}')
-                                    #Sometimes the NCBI can update TaxIDs, i.e., translate the taxID. NCBITaxa deals with this, but to avoid foreigkey errors
-                                    #it is better to insert into the DB what NCBITaxa retrieved and not the TaxID in the genome file
-                                    session.add(Genome(AssemblyAccession=fields[assemblyAccessionIndex], TaxID=lineage[-1], urlBase=url))
-                                    ftp.cwd(asm)
-                                    for file in ftp.nlst():
-                                        if file.endswith(asm + '_genomic.fna.gz'):
-                                            session.add(GenomeFile(AssemblyAccession=fields[assemblyAccessionIndex], FileType='Genome sequence', FileName=file, FileSource='NCBI'))
-                                        elif file.endswith(asm + '_protein.faa.gz'):
-                                            session.add(GenomeFile(AssemblyAccession=fields[assemblyAccessionIndex], FileType='Protein sequence', FileName=file, FileSource='NCBI'))	
-                                        elif file.endswith(asm + '_genomic.gff.gz'):
-                                            session.add(GenomeFile(AssemblyAccession=fields[assemblyAccessionIndex], FileType='Genome annotation', FileName=file, FileSource='NCBI'))
-                                        elif file.endswith(asm + '_translated_cds.faa.gz'):
-                                            session.add(GenomeFile(AssemblyAccession=fields[assemblyAccessionIndex], FileType='Protein sequence alter', FileName=file, FileSource='NCBI'))
-                                        # print(file)
-                            ftp.quit()
-                            time.sleep(3)#Wait to avoid being banned by NCBI
+                            try:
+                                ftp = ftplib.FTP(FTP_HOST, FTP_USER, FTP_PASS)
+                                ftp.cwd(f'genomes/all/{acc[0:3]}/{acc[4:7]}/{acc[7:10]}/{acc[10:13]}/')
+                                for asm in ftp.nlst():
+                                    if asm.startswith(fields[assemblyAccessionIndex]):
+                                        url=f'https://ftp.ncbi.nlm.nih.gov/genomes/all/{acc[0:3]}/{acc[4:7]}/{acc[7:10]}/{acc[10:13]}/{asm}'
+                                        # print(f'{acc}\t{ver}\t{asm}\t{url}')
+                                        #Sometimes the NCBI can update TaxIDs, i.e., translate the taxID. NCBITaxa deals with this, but to avoid foreigkey errors
+                                        #it is better to insert into the DB what NCBITaxa retrieved and not the TaxID in the genome file
+                                        session.add(Genome(AssemblyAccession=fields[assemblyAccessionIndex], TaxID=lineage[-1], urlBase=url))
+                                        ftp.cwd(asm)
+                                        for file in ftp.nlst():
+                                            if file.endswith(asm + '_genomic.fna.gz'):
+                                                session.add(GenomeFile(AssemblyAccession=fields[assemblyAccessionIndex], FileType='Genome sequence', FileName=file, FileSource='NCBI'))
+                                            elif file.endswith(asm + '_protein.faa.gz'):
+                                                session.add(GenomeFile(AssemblyAccession=fields[assemblyAccessionIndex], FileType='Protein sequence', FileName=file, FileSource='NCBI'))	
+                                            elif file.endswith(asm + '_genomic.gff.gz'):
+                                                session.add(GenomeFile(AssemblyAccession=fields[assemblyAccessionIndex], FileType='Genome annotation', FileName=file, FileSource='NCBI'))
+                                            elif file.endswith(asm + '_translated_cds.faa.gz'):
+                                                session.add(GenomeFile(AssemblyAccession=fields[assemblyAccessionIndex], FileType='Protein sequence alter', FileName=file, FileSource='NCBI'))
+                                            # print(file)
+                                ftp.quit()
+                                time.sleep(3)#Wait to avoid being banned by NCBI
+                            except:
+                                errorsLog.write(f'Error: Could not download files for assembly: {fields[assemblyAccessionIndex]}\n')
                 else:
                     print(f'\t{fields[assemblyAccessionIndex]} with TaxID: {fields[1]} is not in the target groups')
     #commit the changes

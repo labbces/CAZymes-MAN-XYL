@@ -215,6 +215,86 @@ def getMD5sumFromFile(md5PathFile=None, target=None):
                 break
     return md5sum
 
+#Get all proteins in fasta format for a given family
+def getProteinsFasta(familyID=None, password=None):
+    engine = connectDB(password)
+    from sqlalchemy.orm import sessionmaker
+    from sqlalchemy import select
+    from sqlalchemy.ext.automap import automap_base
+    import sys
+    import os
+    import datetime
+    import re
+    import gzip
+    from Bio import SeqIO
+
+    Base = automap_base()
+    Base.prepare(engine, reflect=True)
+    Session = sessionmaker(bind=engine)
+    session = Session()
+
+    GenomeFiles = Base.classes.GenomeFiles
+    Genomes = Base.classes.Genomes
+    ProteinSequence = Base.classes.ProteinSequences 
+    Proteins2GenomeFile = Base.classes.Proteins2GenomeFile
+    ProteinSequence2CazyFamily = Base.classes.ProteinSequence2CazyFamily
+
+    getProteinSequencesForFamily=select([ProteinSequence.ProteinID,ProteinSequence.Sequence,GenomeFiles.AssemblyAccession,ProteinSequence2CazyFamily.CazyFamilyID,Genomes.TaxID])
+    getProteinSequencesForFamily=getProteinSequencesForFamily.join(Proteins2GenomeFile,Proteins2GenomeFile.ProteinID==ProteinSequence.ProteinID)
+    getProteinSequencesForFamily=getProteinSequencesForFamily.join(GenomeFiles,GenomeFiles.ID==Proteins2GenomeFile.GenomeFileID)
+    getProteinSequencesForFamily=getProteinSequencesForFamily.join(ProteinSequence2CazyFamily,ProteinSequence2CazyFamily.ProteinID==ProteinSequence.ProteinID)
+    getProteinSequencesForFamily=getProteinSequencesForFamily.join(Genomes,Genomes.AssemblyAccession==GenomeFiles.AssemblyAccession)
+    getProteinSequencesForFamily=getProteinSequencesForFamily.where(ProteinSequence2CazyFamily.CazyFamilyID==familyID)
+
+    resultsGetProteinSequencesForFamily=session.execute(getProteinSequencesForFamily)
+    rows=resultsGetProteinSequencesForFamily.fetchall()
+    if rows:
+        for row in rows:
+            lineage=getTaxInfo(taxID=row[4],password=password)
+            print(f'>{row[0]} AssemblyAccession:[{row[2]}];CazyFamily:[{row[3]}];taxID:[{row[4]}];name:[{lineage["name"]}];species:[{lineage["species"]}];Group:[{lineage["targetGroup"]}]\n{row[1]}')
+
+def getTaxInfo(taxID=None,password=None):
+    engine = connectDB(password)
+    from sqlalchemy.orm import sessionmaker
+    from sqlalchemy.sql import text
+    from sqlalchemy import select, update, bindparam
+    from sqlalchemy.ext.automap import automap_base
+
+    Base = automap_base()
+    Base.prepare(engine, reflect=True)
+    Session = sessionmaker(bind=engine)
+    session = Session()
+
+    taxonomicLineage = text("""with recursive ancestors as ( 
+         select * from Taxonomy where TaxID=:taxID 
+             union 
+             select f.*  from Taxonomy as f, ancestors as a 
+             where  f.TaxID = a.ParentTaxID 
+             )
+             select a.TaxName, a.RankName, a.TaxID 
+             from ancestors as a, Taxonomy as b 
+             where a.ParentTaxID = b.TaxID""")
+    resultsGetTaxonomicLineage=session.execute(taxonomicLineage, {'taxID':taxID})
+    rows=resultsGetTaxonomicLineage.fetchall()
+    lineage={}
+    if rows:
+        targetGroup='Do not know - Problem with taxonomy'
+        name=''
+        for row in rows:
+            # print(f'{row[0]} {row[1]} {row[2]}')
+            lineage[row[1]]=row[0]
+            if row[1]=='superkingdom' and row[0]=='Bacteria':
+                targetGroup=row[0]
+            elif row[1]=='superkingdom' and row[0]=='Archaea':
+                targetGroup=row[0]
+            elif row[1]=='kingdom' and row[0]=='Fungi':
+                targetGroup=row[0]
+            elif row[2] == taxID:
+                name=row[0]
+        lineage['targetGroup']=targetGroup
+        lineage['name']=name
+    return lineage
+
 #Load dbCAN results in DB
 def loadDbCANResults(password=None,pathDir=None):
     engine = connectDB(password)

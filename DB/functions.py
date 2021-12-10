@@ -440,7 +440,7 @@ WHERE ee.GenomeFileID is NULL''')
                         if loadSeqsFam>0:
                             checkGenomeFileDownloaded2=select(GenomeFileDownloaded).where(GenomeFileDownloaded.GenomeFileID==data[1]).where(GenomeFileDownloaded.Action=='Load dbCAN search')
                             resultsCheckGenomeFileDownloaded2=session.execute(checkGenomeFileDownloaded2)
-                            if resultsCheckGenomeFileDownloaded2.fetchedone() is None:
+                            if resultsCheckGenomeFileDownloaded2.fetchone() is None:
                                 dateToday=datetime.date.today()
                                 session.add(GenomeFileDownloaded(GenomeFileID=data[1],Action='Load dbCAN search',ActionDate=dateToday))
     else:

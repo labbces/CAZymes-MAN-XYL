@@ -7,5 +7,5 @@ parser.add_argument('--pathDir', dest='pathDir', type=str, help='Base path where
 args= parser.parse_args()
 
 createDB(args.password)
-#submitCAZymeSearch(password=args.password,countIter=0,pathDir=args.pathDir)
+#submitCAZymeSearch(password=args.password,countIter=0,pathDir=args.pathDir,maxGenomeID=0)
 loadDbCANResults(password=args.password,pathDir=args.pathDir)

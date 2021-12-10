@@ -449,7 +449,7 @@ WHERE ee.GenomeFileID is NULL''')
     session.commit()
     session.close()
 #Run dbCAN on the protein file 
-def submitCAZymeSearch(password=None,countIter=0,pathDir=None):
+def submitCAZymeSearch(password=None,countIter=0,pathDir=None,maxGenomeID=0):
     engine = connectDB(password)
     from sqlalchemy.orm import sessionmaker
     from sqlalchemy.sql import text
@@ -470,21 +470,35 @@ def submitCAZymeSearch(password=None,countIter=0,pathDir=None):
     GenomeFileDownloaded = Base.classes.GenomeFileDownloaded
     Genomes = Base.classes.Genomes
 
+#     getGenomeFileIDsQuery=text('''SELECT cc.ID FROM
+# (SELECT aa.ID FROM GenomeFiles as aa
+#  JOIN GenomeFileDownloaded as bb 
+#  ON aa.ID=bb.GenomeFileID
+#  where aa.FileType='Protein sequence'
+#  AND
+#  bb.Action='Downloaded') as cc
+# LEFT JOIN 
+# (SELECT dd.GenomeFileID FROM GenomeFileDownloaded as dd
+# WHERE dd.Action='submitted dbCAN search') as ee
+# ON cc.ID=ee.GenomeFileID
+# WHERE ee.GenomeFileID is NULL limit 1000''')
+
     getGenomeFileIDsQuery=text('''SELECT cc.ID FROM
 (SELECT aa.ID FROM GenomeFiles as aa
  JOIN GenomeFileDownloaded as bb 
  ON aa.ID=bb.GenomeFileID
  where aa.FileType='Protein sequence'
  AND
- bb.Action='Downloaded') as cc
+ bb.Action='Downloaded' 
+ AND aa.ID >:maxID
+ order by aa.ID) as cc
 LEFT JOIN 
 (SELECT dd.GenomeFileID FROM GenomeFileDownloaded as dd
 WHERE dd.Action='submitted dbCAN search') as ee
 ON cc.ID=ee.GenomeFileID
 WHERE ee.GenomeFileID is NULL limit 1000''')
 
-    
-    resultsGetGenomeFileIDs=session.execute(getGenomeFileIDsQuery)
+    resultsGetGenomeFileIDs=session.execute(getGenomeFileIDsQuery,maxID=maxGenomeID)
     rows=resultsGetGenomeFileIDs.fetchall()
     # print(countIter)
     countRows=0
@@ -493,6 +507,8 @@ WHERE ee.GenomeFileID is NULL limit 1000''')
         listFilesfilename=f'listFiles.'+str(countIter)+'.txt'
         with open(listFilesfilename, 'w') as f:
             for row in rows:
+                if row[0]>maxGenomeID:
+                    maxGenomeID=row[0]
                 getGenomeInfo=select([GenomeFiles.FileName,GenomeFiles.ID,Genomes.urlBase]).where(Genomes.AssemblyAccession==GenomeFiles.AssemblyAccession).where(GenomeFiles.ID==row[0])
                 resultsGetGenomeInfo=session.execute(getGenomeInfo)
                 data=resultsGetGenomeInfo.fetchone()
@@ -513,20 +529,19 @@ WHERE ee.GenomeFileID is NULL limit 1000''')
                 countRows+=1
                 os.system(f'qsub {submitScriptfilename}')
                 for id in submitGenomeFiles:
-                    if countRows % 300 == 0:
-                        session.commit()
                     dateToday=datetime.date.today()
                     session.add(GenomeFileDownloaded(GenomeFileID=id, Action='submitted dbCAN search',ActionDate=dateToday)) #session.add(GenomeFileDownloaded(GenomeFileID=row[0], Action='submitted dbCAN search')) 
+                    session.commit()
             else:
                 print('qsub command not found..',file=sys.stderr)
         session.commit()
-        time.sleep(4)
+#        time.sleep(4)
     else:
         sys.exit('No more files to process')
 
     session.commit()
     session.close()    
-    submitCAZymeSearch(password=password,countIter=countIter+1,pathDir=pathDir)
+    submitCAZymeSearch(password=password,countIter=countIter+1,pathDir=pathDir,maxGenomeID=maxGenomeID)
 
 def generateSubmissionScript(listGenomeFiles=None,submitScriptfilename=None,listFilesfilename=None,countIter=None):
     with open(submitScriptfilename, 'w') as f:
@@ -545,7 +560,13 @@ def generateSubmissionScript(listGenomeFiles=None,submitScriptfilename=None,list
         f.write(f'gunzip $FILENAMEGZ\n')
         f.write('OUTDIR=${FILENAMEGZ/.faa.gz/_dbCAN}\n')
         f.write(f'rm -rf $OUTDIR\n')
-        f.write(f'run_dbcan.py --hmm_cpu $NSLOTS --hotpep_cpu $NSLOTS --tf_cpu $NSLOTS --stp_cpu $NSLOTS --dia_cpu $NSLOTS --out_dir $OUTDIR --db_dir /Storage/databases/dbCAN_V10/ $FILENAME protein\n')
+        
+        f.write('if test -f ${OUTDIR}/overview.txt; then\n')
+        f.write('    echo "dbCAN already ran"\n')
+        f.write('else\n')
+        f.write(f'    run_dbcan.py --hmm_cpu $NSLOTS --hotpep_cpu $NSLOTS --tf_cpu $NSLOTS --stp_cpu $NSLOTS --dia_cpu $NSLOTS --out_dir $OUTDIR --db_dir /Storage/databases/dbCAN_V10/ $FILENAME protein\n')
+        f.write('    echo "dbCAN search completed" > ${OUTDIR}/dbCAN.ok\n')
+        f.write('fi\n')
         f.write(f'gzip $FILENAME\n')
 
 

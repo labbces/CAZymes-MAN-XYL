@@ -498,7 +498,7 @@ WHERE dd.Action='submitted dbCAN search') as ee
 ON cc.ID=ee.GenomeFileID
 WHERE ee.GenomeFileID is NULL limit 1000''')
 
-    resultsGetGenomeFileIDs=session.execute(getGenomeFileIDsQuery,maxID=maxGenomeID)
+    resultsGetGenomeFileIDs=session.execute(getGenomeFileIDsQuery,params=dict(maxID=maxGenomeID))
     rows=resultsGetGenomeFileIDs.fetchall()
     # print(countIter)
     countRows=0

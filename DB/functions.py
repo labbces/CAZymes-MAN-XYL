@@ -546,7 +546,8 @@ WHERE ee.GenomeFileID is NULL limit 1000''')
 def generateSubmissionScript(listGenomeFiles=None,submitScriptfilename=None,listFilesfilename=None,countIter=None):
     with open(submitScriptfilename, 'w') as f:
         name=f'scriptdbCAN_{countIter}'
-        prevName=f'scriptdbCAN_{int(countIter)-1}'
+        previousInteger=countIter-1
+        prevName=f'scriptdbCAN_{previousInteger}'
         f.write(f'#!/bin/bash\n#$ -cwd\n#$ -q all.q\n#$ -pe smp 4\n#$ -t 1-{len(listGenomeFiles)}\n#$ -tc 10\n')
         f.write(f'#$ -N {name}\n')
         f.write(f'#$ -hold_jid {prevName}\n')

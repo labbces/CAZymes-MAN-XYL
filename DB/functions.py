@@ -259,7 +259,7 @@ def getTaxInfo(taxID=None,password=None):
     from sqlalchemy.sql import text
     from sqlalchemy import select, update, bindparam
     from sqlalchemy.ext.automap import automap_base
-
+ 
     Base = automap_base()
     Base.prepare(engine, reflect=True)
     Session = sessionmaker(bind=engine)
@@ -308,6 +308,7 @@ def loadDbCANResults(password=None,pathDir=None):
     import re
     import gzip
     from Bio import SeqIO
+    import subprocess
 
     CAZymeClass={
     'GH':'Glycoside Hydrolases',
@@ -359,14 +360,22 @@ WHERE ee.GenomeFileID is NULL''')
                 dirPath=pathDir+'/'+data[2].replace('https://ftp.ncbi.nlm.nih.gov/genomes/all/','')+'/'+data[0]
                 fastagzPath=pathDir+'/'+data[2].replace('https://ftp.ncbi.nlm.nih.gov/genomes/all/','')+'/'+data[0]
                 dirPath=dirPath.replace('.faa.gz','_dbCAN')
+                loadSeqsFam=0
                 if os.path.isdir(dirPath):
                     resFile=dirPath+'/overview.txt'
                     #Check if dbCAN results are available
                     if os.path.isfile(resFile):
                         #if dbCAN results available load protein sequence in SeqIO
-                        with gzip.open(fastagzPath, "rt") as fastaHandle:
-                            fastaRecords = SeqIO.to_dict(SeqIO.parse(fastaHandle, "fasta"))
-                        #id dbCAN results are available insert action into DB
+                        if os.path.isfile(fastagzPath):
+                            with gzip.open(fastagzPath, "rt") as fastaHandle:
+                                fastaRecords = SeqIO.to_dict(SeqIO.parse(fastaHandle, "fasta"))
+                        elif os.path.isfile(fastagzPath.replace('.gz','')):
+                            fastaRecords = SeqIO.to_dict(SeqIO.parse(fastagzPath.replace('.gz',''), "fasta"))
+                            subprocess.run(['gzip',fastagzPath.replace('.gz','')])
+                        else:
+                            print(f'No fasta file found in {dirPath}', file=sys.stderr)
+
+                        #if dbCAN results are available insert action into DB
                         checkGenomeFileDownloaded=select(GenomeFileDownloaded).where(GenomeFileDownloaded.GenomeFileID==data[1]).where(GenomeFileDownloaded.Action=='Ran dbCAN search')
                         resultsCheckGenomeFileDownloaded=session.execute(checkGenomeFileDownloaded)
                         if resultsCheckGenomeFileDownloaded.fetchone() is None:
@@ -376,7 +385,6 @@ WHERE ee.GenomeFileID is NULL''')
                             for line in file:
                                 if not line.startswith('Gene ID'):
                                     cazymes={}
-                                    loadSeqsFam=0
                                     line=line.rstrip()
                                     protID,hmmerRes,HotpepRes,DiamondRes,nn=line.split('\t')
                                     if hmmerRes!='-':
@@ -1052,7 +1060,7 @@ def populateGenomes(url,password=None,updateNCBITaxDB=False,typeOrg='euk'):
                     True
                     # print(f'Checking {fields[assemblyAccessionIndex]}')
 
-                #Commit to the DB every 10 lines of the genome file
+                #Commit to the DB every 100 lines of the genome file
                 if counter % 100 == 0:
                     session.commit()
 
@@ -1089,6 +1097,7 @@ def populateGenomes(url,password=None,updateNCBITaxDB=False,typeOrg='euk'):
                                 session.add(Taxonomy(ParentTaxID=lineage[index-1], TaxID=i, RankName=rank[i], TaxName=taxid2name[i]))
                     checkGenome=select([Genome]).where(Genome.AssemblyAccession==fields[assemblyAccessionIndex])
                     resultCheckGenome = session.execute(checkGenome)
+                    #Check which files are available for the genome.
                     if resultCheckGenome.fetchone() is None:
                         acc,ver=fields[assemblyAccessionIndex].split('.')
                         if len(acc) == 13:

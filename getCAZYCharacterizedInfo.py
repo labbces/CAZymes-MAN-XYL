@@ -6,7 +6,7 @@ import urllib.request
 import time
 import argparse
 from ete3 import NCBITaxa
-# from DB.functions import *
+from DB.functions import *
 
 # Initialize the NCBI taxonomy DB using ETE
 ncbi = NCBITaxa()
@@ -196,14 +196,20 @@ with open(fileInDisk) as fhand:
                 continue
             infoFamily[family][rowHeader.text.strip()].append(d)
 
+# import json
+# data2json = json.dumps(enzymes)
+# # print(data2json)
+
+# print(json.dumps(infoFamily))	
+
 if args.loadDB:
     updateNCBITaxDB = False
+    createDB(args.password)
     if(args.updateNCBITaxDB):
         updateNCBITaxDB = True
 
     if args.password:
-        populateWebCAZyInfo(password=args.password, updateNCBITaxDB=updateNCBITaxDB,
-                            infoFamily=infoFamily, enzymes=enzymes, family=args.family)
+        populateWebCAZyInfo(password=args.password, updateNCBITaxDB=updateNCBITaxDB,infoFamily=infoFamily, enzymes=enzymes, family=args.family,typePage='characterized')
     else:
         print(f'if you want to perform any operation on the DB you must provide a password.', file=sys.stderr)
         sys.exit()

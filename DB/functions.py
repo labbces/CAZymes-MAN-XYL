@@ -169,6 +169,17 @@ def createDB(password=None):
             ForeignKeyConstraint(['ProteinID'], ['ProteinSequences.ProteinID']),
             {'mariadb_engine':'InnoDB'},
         )
+    
+    class ProteinReference(Base):
+        __tablename__ = 'ProteinReferences'
+        ProteinReferenceID=Column(Integer, primary_key=True, autoincrement=True)
+        StudiedCAZymesID=Column(Integer)
+        Reference=Column(String(255))
+        Source = Column(String(255))
+        __table_args__ = (
+            ForeignKeyConstraint(['StudiedCAZymesID'], ['StudiedCAZymes.StudiedCAZymesID']),
+            {'mariadb_engine':'InnoDB'},
+        )
 
     Base.metadata.create_all(engine)
 
@@ -826,7 +837,7 @@ def getProteinSequenceFromGenbank(proteinIDs, apiKey=None):
 #    print(f'Getting sequence for {proteinIDs} from Genbank')
 
 #Populate Genomes table with data from NCBI genomes
-def populateWebCAZyInfo(password=None,updateNCBITaxDB=False,infoFamily=None,enzymes=None,family=None):
+def populateWebCAZyInfo(password=None,updateNCBITaxDB=False,infoFamily=None,enzymes=None,family=None,typePage=None):
     #CAZymes classes
     CAZymeClass={
     'GH':'Glycoside Hydrolases',
@@ -863,6 +874,7 @@ def populateWebCAZyInfo(password=None,updateNCBITaxDB=False,infoFamily=None,enzy
     StudiedCAZymesPDB = Base.classes.StudiedCAZymesPDB
     StudiedCAZymesProteins = Base.classes.StudiedCAZymesProteins
     ProteinSequences = Base.classes.ProteinSequences
+    ProteinReference = Base.classes.ProteinReferences
 
 
     for family in infoFamily:
@@ -931,18 +943,18 @@ def populateWebCAZyInfo(password=None,updateNCBITaxDB=False,infoFamily=None,enzy
                 session.commit()
                 #Filling in StudiedCAZymes table
                 StudiedCAZymesID=0
-                checkStudiedCAZymes=select([StudiedCAZymes]).where(StudiedCAZymes.TaxID==int(lineage[-1])).where(StudiedCAZymes.TaxNameAsIs==enzymes[inx][name]['taxNameAsIs']).where(StudiedCAZymes.Name==unidecode(name)).where(StudiedCAZymes.FamilyID==family).where(StudiedCAZymes.Type=='structure')
+                checkStudiedCAZymes=select([StudiedCAZymes]).where(StudiedCAZymes.TaxID==int(lineage[-1])).where(StudiedCAZymes.TaxNameAsIs==enzymes[inx][name]['taxNameAsIs']).where(StudiedCAZymes.Name==unidecode(name)).where(StudiedCAZymes.FamilyID==family).where(StudiedCAZymes.Type==typePage)
                 resultCheckStudiedCAZymes = session.execute(checkStudiedCAZymes)
                 if resultCheckStudiedCAZymes.fetchone() is None:
                     if 'subFamily' in enzymes[inx][name].keys():
-                        StudCazy=StudiedCAZymes(TaxID=int(lineage[-1]), subFamily=enzymes[inx][name]['subFamily'], TaxNameAsIs=enzymes[inx][name]['taxNameAsIs'], Name=unidecode(name), FamilyID=family, Type='structure')
+                        StudCazy=StudiedCAZymes(TaxID=int(lineage[-1]), subFamily=enzymes[inx][name]['subFamily'], TaxNameAsIs=enzymes[inx][name]['taxNameAsIs'], Name=unidecode(name), FamilyID=family, Type=typePage)
                     else:
-                        StudCazy=StudiedCAZymes(TaxID=int(lineage[-1]), TaxNameAsIs=enzymes[inx][name]['taxNameAsIs'], Name=unidecode(name), FamilyID=family, Type='structure')
+                        StudCazy=StudiedCAZymes(TaxID=int(lineage[-1]), TaxNameAsIs=enzymes[inx][name]['taxNameAsIs'], Name=unidecode(name), FamilyID=family, Type=typePage)
                     session.add(StudCazy)
                     session.flush()
                     StudiedCAZymesID=StudCazy.StudiedCAZymesID
                 else:
-                    checkStudiedCAZymes2=select([StudiedCAZymes]).where(StudiedCAZymes.TaxID==int(lineage[-1])).where(StudiedCAZymes.TaxNameAsIs==enzymes[inx][name]['taxNameAsIs']).where(StudiedCAZymes.Name==unidecode(name)).where(StudiedCAZymes.FamilyID==family).where(StudiedCAZymes.Type=='structure')
+                    checkStudiedCAZymes2=select([StudiedCAZymes]).where(StudiedCAZymes.TaxID==int(lineage[-1])).where(StudiedCAZymes.TaxNameAsIs==enzymes[inx][name]['taxNameAsIs']).where(StudiedCAZymes.Name==unidecode(name)).where(StudiedCAZymes.FamilyID==family).where(StudiedCAZymes.Type==typePage)
                     resultCheckStudiedCAZymes2 = session.execute(checkStudiedCAZymes2)
                     StudiedCAZymesID=resultCheckStudiedCAZymes2.fetchone().StudiedCAZymes.StudiedCAZymesID
                 #Filling in StudiedCAZymesPDB table
@@ -981,7 +993,16 @@ def populateWebCAZyInfo(password=None,updateNCBITaxDB=False,infoFamily=None,enzy
                             StudCazyProtein=StudiedCAZymesProteins(StudiedCAZymesID=StudiedCAZymesID, ProteinID=acc)
                             session.add(StudCazyProtein)
                             session.commit()
-                
+                if 'References' in enzymes[inx][name].keys():
+                    for id in enzymes[inx][name]['References']:
+                        print(f'{StudiedCAZymesID}\t{id}\t{enzymes[inx][name]["References"][id]}')
+                        checkReferences=select([ProteinReference]).where(ProteinReference.StudiedCAZymesID==StudiedCAZymesID).where(ProteinReference.Reference==id)
+                        resultCheckReferences = session.execute(checkReferences)
+                        if resultCheckReferences.fetchone() is None:
+                            Reference=ProteinReference(StudiedCAZymesID=StudiedCAZymesID, Reference=id, Source=enzymes[inx][name]['References'][id])
+                            session.add(Reference)
+                            session.commit()                            
+
             #print(enzymes[inx][name]['taxID'])
             #print(enzymes[inx])
     #commit the changes

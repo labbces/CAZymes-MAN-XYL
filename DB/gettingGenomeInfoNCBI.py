@@ -16,5 +16,5 @@ if(args.dropDB):
 if(args.updateNCBITaxDB):
     updateNCBITaxDB=True
 
-#populateGenomes('https://ftp.ncbi.nlm.nih.gov/genomes/GENOME_REPORTS/eukaryotes.txt',args.password,args.typeOrg,updateNCBITaxDB)
+#populateGenomes('https://ftp.ncbi.nlm.nih.gov/genomes/GENOME_REPORTS/eukaryotes.txt',password=args.password,typeOrg=args.typeOrg,updateNCBITaxDB=updateNCBITaxDB)
 populateGenomes(url='https://ftp.ncbi.nlm.nih.gov/genomes/GENOME_REPORTS/prokaryotes.txt',password=args.password,typeOrg=args.typeOrg,updateNCBITaxDB=updateNCBITaxDB)

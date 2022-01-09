@@ -8,3 +8,13 @@ genomes.txt
 populateErrors.log
 DB/xylman.cnf
 XylMan_DownloadedGenomes.nb.html
+logs/
+test/
+submitScript_runDbCAN*
+*.sh
+*.sh.[eo][0-9.]*
+*.[eo][0-9.]*
+listFiles.[0-9]*.txt
+*_structure.html
+*_characterized.html
+

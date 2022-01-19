@@ -6,6 +6,9 @@ from Bio import SeqIO
 from ete3 import NCBITaxa
 import pandas as pd
 import argparse
+import numpy as np
+
+
 # pd.plotting.register_matplotlib_converters()
 
 # Get desired taxonomica rank
@@ -86,11 +89,21 @@ for rankID in infoDict.keys():
     #print(f'For RankID {rankID} the average of proteins by assembly accession is {average}')
 
     averageDict[rankID] = average
-print(averageDict)
+# print(averageDict)
 
-# Create the grph
-df = pd.DataFrame(averageDict.items(), columns=[
-                  'Rank ID', 'average']).sort_values('average', ascending=False)
-df.hist(column='average', bins=100, ylabelsize=1)
+# Create the graph
+df = pd.DataFrame(averageDict.items(), columns=['RankID', 'average']).sort_values(
+    'average', ascending=False)
 
+rankID = list(df['RankID'])
+average = list(averageDict.values())
+
+plt.bar(rankID, average, label="Average")
+plt.xticks(rotation=90)
+
+plt.xlabel("RankID", labelpad=7)
+plt.ylabel("average")
+#plt.title('US Technology Stocks')
+
+plt.legend()
 plt.savefig(fname='TestFig.png', dpi='figure', format='png')

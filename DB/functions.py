@@ -232,23 +232,29 @@ def getProteinsFasta(familyID=None, password=None):
     from sqlalchemy.orm import sessionmaker
     from sqlalchemy import select
     from sqlalchemy.ext.automap import automap_base
-    import sys
-    import os
     import datetime
-    import re
-    import gzip
+    import sys
     from Bio import SeqIO
+    from Bio.Seq import Seq
+    from Bio.SeqRecord import SeqRecord
 
     Base = automap_base()
     Base.prepare(engine, reflect=True)
     Session = sessionmaker(bind=engine)
     session = Session()
 
+    dateToday=datetime.date.today().strftime("%d%m%Y")
+    fileOutPredictedCazymeProteins=f'{familyID}_PredictedCAZymeProteins_{dateToday}.fasta'
+    fileOutCharacterizedCazymeProteins=f'{familyID}_CharacterizedCAZymeProteins_{dateToday}.fasta'
+    fileOutStructureCazymeProteins=f'{familyID}_StructureCAZymeProteins_{dateToday}.fasta'
+
     GenomeFiles = Base.classes.GenomeFiles
     Genomes = Base.classes.Genomes
     ProteinSequence = Base.classes.ProteinSequences 
     Proteins2GenomeFile = Base.classes.Proteins2GenomeFile
     ProteinSequence2CazyFamily = Base.classes.ProteinSequence2CazyFamily
+    StudiedCAZyme = Base.classes.StudiedCAZymes
+    StudiedCAZymeProtein = Base.classes.StudiedCAZymesProteins
 
     getProteinSequencesForFamily=select([ProteinSequence.ProteinID,ProteinSequence.Sequence,GenomeFiles.AssemblyAccession,ProteinSequence2CazyFamily.CazyFamilyID,Genomes.TaxID])
     getProteinSequencesForFamily=getProteinSequencesForFamily.join(Proteins2GenomeFile,Proteins2GenomeFile.ProteinID==ProteinSequence.ProteinID)
@@ -257,12 +263,61 @@ def getProteinsFasta(familyID=None, password=None):
     getProteinSequencesForFamily=getProteinSequencesForFamily.join(Genomes,Genomes.AssemblyAccession==GenomeFiles.AssemblyAccession)
     getProteinSequencesForFamily=getProteinSequencesForFamily.where(ProteinSequence2CazyFamily.CazyFamilyID==familyID)
 
-    resultsGetProteinSequencesForFamily=session.execute(getProteinSequencesForFamily)
-    rows=resultsGetProteinSequencesForFamily.fetchall()
-    if rows:
-        for row in rows:
-            lineage=getTaxInfo(taxID=row[4],password=password)
-            print(f'>{row[0]} AssemblyAccession:[{row[2]}];CazyFamily:[{row[3]}];taxID:[{row[4]}];name:[{lineage["name"]}];species:[{lineage["species"]}];Group:[{lineage["targetGroup"]}]\n{row[1]}')
+    getCharacterizedProteinsForFamily=select([ProteinSequence.ProteinID,ProteinSequence.Sequence,ProteinSequence.Database,StudiedCAZyme.Type,StudiedCAZyme.FamilyID,StudiedCAZyme.TaxID])
+    getCharacterizedProteinsForFamily=getCharacterizedProteinsForFamily.join(StudiedCAZymeProtein,StudiedCAZymeProtein.ProteinID==ProteinSequence.ProteinID)
+    getCharacterizedProteinsForFamily=getCharacterizedProteinsForFamily.join(StudiedCAZyme,StudiedCAZyme.StudiedCAZymesID==StudiedCAZymeProtein.StudiedCAZymesID)
+    getCharacterizedProteinsForFamily=getCharacterizedProteinsForFamily.where(StudiedCAZyme.Type=='characterized')
+    getCharacterizedProteinsForFamily=getCharacterizedProteinsForFamily.where(StudiedCAZyme.FamilyID==familyID)
+
+    getStructureProteinsForFamily=select([ProteinSequence.ProteinID,ProteinSequence.Sequence,ProteinSequence.Database,StudiedCAZyme.Type,StudiedCAZyme.FamilyID,StudiedCAZyme.TaxID])
+    getStructureProteinsForFamily=getStructureProteinsForFamily.join(StudiedCAZymeProtein,StudiedCAZymeProtein.ProteinID==ProteinSequence.ProteinID)
+    getStructureProteinsForFamily=getStructureProteinsForFamily.join(StudiedCAZyme,StudiedCAZyme.StudiedCAZymesID==StudiedCAZymeProtein.StudiedCAZymesID)
+    getStructureProteinsForFamily=getStructureProteinsForFamily.where(StudiedCAZyme.Type=='structure')
+    getStructureProteinsForFamily=getStructureProteinsForFamily.where(StudiedCAZyme.FamilyID==familyID)
+
+    # resultsGetProteinSequencesForFamily=session.execute(getProteinSequencesForFamily)
+    # rows=resultsGetProteinSequencesForFamily.fetchall()
+    # if rows:
+    #     with open(fileOutPredictedCazymeProteins, "w") as f:
+    #         for row in rows:
+    #             lineage=getTaxInfo(taxID=row[4],password=password)
+    #             proteinRecord = SeqRecord(Seq(row[1]), 
+    #             id=row[0], 
+    #             description=f'Status:[Predicted];AssemblyAccession:[{row[2]}];CazyFamily:[{row[3]}];taxID:[{row[4]}];name:[{lineage["name"]}];species:[{lineage["species"]}];Group:[{lineage["targetGroup"]}]'
+    #             )
+    #             SeqIO.write(proteinRecord, f, "fasta")
+    #             #print(f'>{row[0]} AssemblyAccession:[{row[2]}];CazyFamily:[{row[3]}];taxID:[{row[4]}];name:[{lineage["name"]}];species:[{lineage["species"]}];Group:[{lineage["targetGroup"]}]\n{row[1]}')
+
+    resultsGetCharacterizedProteinsForFamily=session.execute(getCharacterizedProteinsForFamily)
+    rows1=resultsGetCharacterizedProteinsForFamily.fetchall()
+    if rows1:
+        with open(fileOutCharacterizedCazymeProteins, "w") as f:
+            for row in rows1:
+                lineage=getTaxInfo(taxID=row[5],password=password)
+                if row[1]:
+                    proteinRecord = SeqRecord(Seq(row[1]), 
+                    id=row[0], 
+                    description=f'Status:[{row[3]}];Database:[{row[2]}];CazyFamily:[{row[4]}];taxID:[{row[5]}];name:[{lineage["name"]}];species:[{lineage["species"]}];Group:[{lineage["targetGroup"]}]'
+                    )
+                    SeqIO.write(proteinRecord, f, "fasta")
+                else:
+                    print(f'No sequence for protein ID - characterized {row[0]}',file=sys.stderr)
+
+    resultsGetStructureProteinsForFamily=session.execute(getStructureProteinsForFamily)
+    rows2=resultsGetStructureProteinsForFamily.fetchall()
+    if rows2:
+        with open(fileOutStructureCazymeProteins, "w") as f:
+            for row in rows2:
+                lineage=getTaxInfo(taxID=row[5],password=password)
+                if row[1]:
+                    proteinRecord = SeqRecord(Seq(row[1]), 
+                    id=row[0], 
+                    description=f'Status:[{row[3]}];Database:[{row[2]}];CazyFamily:[{row[4]}];taxID:[{row[5]}];name:[{lineage["name"]}];species:[{lineage["species"]}];Group:[{lineage["targetGroup"]}]'
+                    )
+                    SeqIO.write(proteinRecord, f, "fasta")
+                else:
+                    print(f'No sequence for protein ID - structure {row[0]}',file=sys.stderr)
+
 
 def getTaxInfo(taxID=None,password=None):
     engine = connectDB(password)

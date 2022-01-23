@@ -2,8 +2,6 @@ import argparse
 from Bio import SeqIO
 from random import sample
 
-from sympy import N 
-
 # Using argparse to handle variables
 parser = argparse.ArgumentParser()
 parser.add_argument("cazy_family",help="file with cazy family")

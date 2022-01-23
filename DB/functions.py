@@ -275,18 +275,18 @@ def getProteinsFasta(familyID=None, password=None):
     getStructureProteinsForFamily=getStructureProteinsForFamily.where(StudiedCAZyme.Type=='structure')
     getStructureProteinsForFamily=getStructureProteinsForFamily.where(StudiedCAZyme.FamilyID==familyID)
 
-    # resultsGetProteinSequencesForFamily=session.execute(getProteinSequencesForFamily)
-    # rows=resultsGetProteinSequencesForFamily.fetchall()
-    # if rows:
-    #     with open(fileOutPredictedCazymeProteins, "w") as f:
-    #         for row in rows:
-    #             lineage=getTaxInfo(taxID=row[4],password=password)
-    #             proteinRecord = SeqRecord(Seq(row[1]), 
-    #             id=row[0], 
-    #             description=f'Status:[Predicted];AssemblyAccession:[{row[2]}];CazyFamily:[{row[3]}];taxID:[{row[4]}];name:[{lineage["name"]}];species:[{lineage["species"]}];Group:[{lineage["targetGroup"]}]'
-    #             )
-    #             SeqIO.write(proteinRecord, f, "fasta")
-    #             #print(f'>{row[0]} AssemblyAccession:[{row[2]}];CazyFamily:[{row[3]}];taxID:[{row[4]}];name:[{lineage["name"]}];species:[{lineage["species"]}];Group:[{lineage["targetGroup"]}]\n{row[1]}')
+    resultsGetProteinSequencesForFamily=session.execute(getProteinSequencesForFamily)
+    rows=resultsGetProteinSequencesForFamily.fetchall()
+    if rows:
+        with open(fileOutPredictedCazymeProteins, "w") as f:
+            for row in rows:
+                lineage=getTaxInfo(taxID=row[4],password=password)
+                proteinRecord = SeqRecord(Seq(row[1]), 
+                id=row[0], 
+                description=f'Status:[Predicted];AssemblyAccession:[{row[2]}];CazyFamily:[{row[3]}];taxID:[{row[4]}];name:[{lineage["name"]}];species:[{lineage["species"]}];Group:[{lineage["targetGroup"]}]'
+                )
+                SeqIO.write(proteinRecord, f, "fasta")
+                #print(f'>{row[0]} AssemblyAccession:[{row[2]}];CazyFamily:[{row[3]}];taxID:[{row[4]}];name:[{lineage["name"]}];species:[{lineage["species"]}];Group:[{lineage["targetGroup"]}]\n{row[1]}')
 
     resultsGetCharacterizedProteinsForFamily=session.execute(getCharacterizedProteinsForFamily)
     rows1=resultsGetCharacterizedProteinsForFamily.fetchall()

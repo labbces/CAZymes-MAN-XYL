@@ -113,8 +113,8 @@ def plot_format(xlabel, ylabel, title, pos, labels, rotation, grid, label_fontsi
 plt.figure()
 plt.violinplot(data, pos, widths=0.7,
                showmeans=True, showextrema=True, showmedians=True)
-plot_format('Taxonomic Rank', 'Proteins Amount', '', pos,
-            labels=labels, rotation=90, grid=True, label_fontsize=15, title_fontsize=20, xlabel_fontsize=10)
+plot_format('Taxonomic Rank', 'Proteins Amount', title=str(id4search.group(3)), pos=pos,
+            labels=labels, rotation=90, grid=True, label_fontsize=15, title_fontsize=17, xlabel_fontsize=10)
 
 
 fig_name = f'{str(id4search.group(3))}_{rank}_AssemblyAccessionPerTaxonomicRank_ViolinPlot.png'
@@ -123,8 +123,8 @@ plt.savefig(fname=fig_name, dpi='figure', format='png')
 # Building Box plots
 plt.figure()
 plt.boxplot(data, positions=pos)
-plot_format('Taxonomic Rank', 'Proteins Amount', '', pos,
-            labels=labels, rotation=90, grid=True, label_fontsize=15, title_fontsize=20, xlabel_fontsize=10)
+plot_format('Taxonomic Rank', 'Proteins Amount', title=str(id4search.group(3)), pos=pos,
+            labels=labels, rotation=90, grid=True, label_fontsize=15, title_fontsize=17, xlabel_fontsize=10)
 
 fig_name = f'{str(id4search.group(3))}_{rank}_AssemblyAccessionPerTaxonomicRank_BoxPlot.png'
 plt.savefig(fname=fig_name, dpi='figure', format='png')

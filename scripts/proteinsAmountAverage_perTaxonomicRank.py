@@ -1,5 +1,6 @@
 # imports
 from distutils.log import info
+from genericpath import exists
 import re
 import csv
 import matplotlib.pyplot as plt
@@ -14,7 +15,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument(
     "ProteinsFile", help="file that contains protein sequences per family")
 parser.add_argument(
-    "TaxonomicRank", help="group, kingdom, phylum, class, order, family, genus, species")
+    "TaxonomicRank", help="group, kingdom, phylum, class, order, family, genus")
 args = parser.parse_args()
 
 rank = args.TaxonomicRank
@@ -55,16 +56,18 @@ with open(ptn_file, "r") as ProteinSeqsFile:
                 except:
                     # print(f'Protein {ID} does not have {rank} information: {ranks2lineage}')
                     noRankInfoAmount += 1
+                    rankID = ''
                     pass
             else:
                 rankID = group
 
-            if rankID not in infoDict.keys():
-                infoDict[rankID] = {}
-            if assemblyAccession not in infoDict[rankID].keys():
-                infoDict[rankID][assemblyAccession] = 1
-            else:
-                infoDict[rankID][assemblyAccession] += 1
+            if rankID != '':
+                if rankID not in infoDict.keys():
+                    infoDict[rankID] = {}
+                if assemblyAccession not in infoDict[rankID].keys():
+                    infoDict[rankID][assemblyAccession] = 1
+                else:
+                    infoDict[rankID][assemblyAccession] += 1
 
 # print(infoDict)
 print(f"{noRankInfoAmount} proteins does not have rank information in a total of {totalProteins} proteins or {(noRankInfoAmount*100)/totalProteins}%")
@@ -99,6 +102,16 @@ while n <= len(data):
     pos.append(n)
     n += 1
 
+fig_size = []
+base2size = len(data)
+x_size = base2size * 0.14  # 0.14 was defined by tests
+y_size = {'group': 5, 'kingdom': 5, 'phylum': 5,
+          'class': 5, 'order': 8, 'family': 8, 'genus': 8}
+if x_size < 6:
+    x_size = 6.4
+fig_size.append(x_size)
+fig_size.append(y_size[rank])
+
 
 def plot_format(xlabel, ylabel, title, pos, labels, rotation, grid, label_fontsize, title_fontsize, xlabel_fontsize):
     plt.xlabel(str(xlabel), fontsize=label_fontsize)
@@ -109,8 +122,11 @@ def plot_format(xlabel, ylabel, title, pos, labels, rotation, grid, label_fontsi
     plt.tight_layout()
 
 
+# fig_size = {'group': [6.4, 5], 'kingdom': [6.4, 5], 'phylum': [6, 5], 'class': [
+#    15.4, 5], 'order': [23.4, 8], 'family': [36.4, 8], 'genus': [90.4, 8]}
+
 # Building violin plots
-plt.figure()
+plt.figure(figsize=fig_size)
 plt.violinplot(data, pos, widths=0.7,
                showmeans=True, showextrema=True, showmedians=True)
 plot_format('Taxonomic Rank', 'Proteins Amount', title=str(id4search.group(3)), pos=pos,
@@ -121,7 +137,8 @@ fig_name = f'{str(id4search.group(3))}_{rank}_AssemblyAccessionPerTaxonomicRank_
 plt.savefig(fname=fig_name, dpi='figure', format='png')
 
 # Building Box plots
-plt.figure()
+# genus: [100.4, 8]
+plt.figure(figsize=fig_size)
 plt.boxplot(data, positions=pos)
 plot_format('Taxonomic Rank', 'Proteins Amount', title=str(id4search.group(3)), pos=pos,
             labels=labels, rotation=90, grid=True, label_fontsize=15, title_fontsize=17, xlabel_fontsize=10)

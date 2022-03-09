@@ -1,8 +1,8 @@
 #Functions for XYLMAN project
 
 #create connection object to mysql/mariadb database using sqlalchemy
-from hashlib import md5
-from re import I
+#from hashlib import md5
+#from re import I
 from sqlalchemy.sql.sqltypes import Enum, String
 
 
@@ -79,7 +79,7 @@ def createDB(password=None):
     class Protein2GenomeFile(Base):
         __tablename__ = 'Proteins2GenomeFile'
         ID=Column(Integer, primary_key=True, autoincrement=True)
-        GenomeFileID = Column(Integer)
+        GenomeFileID = Column(Integer, index=True)
         ProteinID=Column(String(255))
         __table_args__ = (
             ForeignKeyConstraint(['GenomeFileID'], ['GenomeFiles.ID']),
@@ -277,6 +277,7 @@ def getProteinsFasta(familyID=None, password=None):
 
     resultsGetProteinSequencesForFamily=session.execute(getProteinSequencesForFamily)
     rows=resultsGetProteinSequencesForFamily.fetchall()
+    print(f'There are {len(rows)} predicted sequences for family {familyID}')
     if rows:
         with open(fileOutPredictedCazymeProteins, "w") as f:
             for row in rows:
@@ -290,6 +291,8 @@ def getProteinsFasta(familyID=None, password=None):
 
     resultsGetCharacterizedProteinsForFamily=session.execute(getCharacterizedProteinsForFamily)
     rows1=resultsGetCharacterizedProteinsForFamily.fetchall()
+    print(f'There are {len(rows1)} Characterized sequences for family {familyID}')
+
     if rows1:
         with open(fileOutCharacterizedCazymeProteins, "w") as f:
             for row in rows1:
@@ -305,6 +308,8 @@ def getProteinsFasta(familyID=None, password=None):
 
     resultsGetStructureProteinsForFamily=session.execute(getStructureProteinsForFamily)
     rows2=resultsGetStructureProteinsForFamily.fetchall()
+    print(f'There are {len(rows2)} Structure sequences for family {familyID}')
+
     if rows2:
         with open(fileOutStructureCazymeProteins, "w") as f:
             for row in rows2:

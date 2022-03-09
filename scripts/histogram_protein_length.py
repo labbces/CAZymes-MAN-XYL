@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 parser = argparse.ArgumentParser()
 parser.add_argument("infile", help= "predicted cazymes file obtaineid from dbCAN result")
 parser.add_argument("outfile", help="name of the outfile histogram")
+parser.add_argument("nbins", type=int,help="number of bins")
 args = parser.parse_args()
 
 try:
@@ -17,6 +18,7 @@ except:
     exit()
     
 png_name = args.outfile
+num_of_bins = args.nbins
 
 # Making Dic/Histogram
 histogram = dict()
@@ -29,7 +31,7 @@ for seq_record in SeqIO.parse(handle,"fasta"):
 df = pd.DataFrame(histogram.items(), columns=['Sequence_length','Repetitions']).sort_values('Repetitions',ascending=False)
 
 # Ploting the Histogram
-df.hist(column='Sequence_length')
+df.hist(column='Sequence_length', bins=num_of_bins)
 
 plt.xlabel("Lenghth of Sequence", size = 16)
 plt.ylabel("Number ofsequences", size = 16)

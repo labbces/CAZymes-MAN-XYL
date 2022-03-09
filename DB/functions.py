@@ -230,7 +230,7 @@ def getMD5sumFromFile(md5PathFile=None, target=None):
 def getProteinsFasta(familyID=None, password=None):
     engine = connectDB(password)
     from sqlalchemy.orm import sessionmaker
-    from sqlalchemy import select
+    from sqlalchemy import select, func
     from sqlalchemy.ext.automap import automap_base
     import datetime
     import sys
@@ -263,11 +263,30 @@ def getProteinsFasta(familyID=None, password=None):
     getProteinSequencesForFamily=getProteinSequencesForFamily.join(Genomes,Genomes.AssemblyAccession==GenomeFiles.AssemblyAccession)
     getProteinSequencesForFamily=getProteinSequencesForFamily.where(ProteinSequence2CazyFamily.CazyFamilyID==familyID)
 
+    getCountProteinSequencesForFamily=select([func.count(ProteinSequence.ProteinID)])
+    getCountProteinSequencesForFamily=getCountProteinSequencesForFamily.join(Proteins2GenomeFile,Proteins2GenomeFile.ProteinID==ProteinSequence.ProteinID)
+    getCountProteinSequencesForFamily=getCountProteinSequencesForFamily.join(GenomeFiles,GenomeFiles.ID==Proteins2GenomeFile.GenomeFileID)
+    getCountProteinSequencesForFamily=getCountProteinSequencesForFamily.join(ProteinSequence2CazyFamily,ProteinSequence2CazyFamily.ProteinID==ProteinSequence.ProteinID)
+    getCountProteinSequencesForFamily=getCountProteinSequencesForFamily.join(Genomes,Genomes.AssemblyAccession==GenomeFiles.AssemblyAccession)
+    getCountProteinSequencesForFamily=getCountProteinSequencesForFamily.where(ProteinSequence2CazyFamily.CazyFamilyID==familyID)
+
+    resultsGetCountProteinSequencesForFamily=session.execute(getCountProteinSequencesForFamily)
+    numberProteinSequencesForFamily=resultsGetCountProteinSequencesForFamily.fetchone()[0]
+
     getCharacterizedProteinsForFamily=select([ProteinSequence.ProteinID,ProteinSequence.Sequence,ProteinSequence.Database,StudiedCAZyme.Type,StudiedCAZyme.FamilyID,StudiedCAZyme.TaxID])
     getCharacterizedProteinsForFamily=getCharacterizedProteinsForFamily.join(StudiedCAZymeProtein,StudiedCAZymeProtein.ProteinID==ProteinSequence.ProteinID)
     getCharacterizedProteinsForFamily=getCharacterizedProteinsForFamily.join(StudiedCAZyme,StudiedCAZyme.StudiedCAZymesID==StudiedCAZymeProtein.StudiedCAZymesID)
     getCharacterizedProteinsForFamily=getCharacterizedProteinsForFamily.where(StudiedCAZyme.Type=='characterized')
     getCharacterizedProteinsForFamily=getCharacterizedProteinsForFamily.where(StudiedCAZyme.FamilyID==familyID)
+
+    getCountCharacterizedProteinsForFamily=select([func.count(ProteinSequence.ProteinID)])
+    getCountCharacterizedProteinsForFamily=getCountCharacterizedProteinsForFamily.join(StudiedCAZymeProtein,StudiedCAZymeProtein.ProteinID==ProteinSequence.ProteinID)
+    getCountCharacterizedProteinsForFamily=getCountCharacterizedProteinsForFamily.join(StudiedCAZyme,StudiedCAZyme.StudiedCAZymesID==StudiedCAZymeProtein.StudiedCAZymesID)
+    getCountCharacterizedProteinsForFamily=getCountCharacterizedProteinsForFamily.where(StudiedCAZyme.Type=='characterized')
+    getCountCharacterizedProteinsForFamily=getCountCharacterizedProteinsForFamily.where(StudiedCAZyme.FamilyID==familyID)
+
+    resultsGetCountCharacterizedProteinsForFamily=session.execute(getCountCharacterizedProteinsForFamily)
+    numberCharacterizedSequencesForFamily=resultsGetCountCharacterizedProteinsForFamily.fetchone()[0]
 
     getStructureProteinsForFamily=select([ProteinSequence.ProteinID,ProteinSequence.Sequence,ProteinSequence.Database,StudiedCAZyme.Type,StudiedCAZyme.FamilyID,StudiedCAZyme.TaxID])
     getStructureProteinsForFamily=getStructureProteinsForFamily.join(StudiedCAZymeProtein,StudiedCAZymeProtein.ProteinID==ProteinSequence.ProteinID)
@@ -275,9 +294,18 @@ def getProteinsFasta(familyID=None, password=None):
     getStructureProteinsForFamily=getStructureProteinsForFamily.where(StudiedCAZyme.Type=='structure')
     getStructureProteinsForFamily=getStructureProteinsForFamily.where(StudiedCAZyme.FamilyID==familyID)
 
+    getCountStructureProteinsForFamily=select([func.count(ProteinSequence.ProteinID)])
+    getCountStructureProteinsForFamily=getCountStructureProteinsForFamily.join(StudiedCAZymeProtein,StudiedCAZymeProtein.ProteinID==ProteinSequence.ProteinID)
+    getCountStructureProteinsForFamily=getCountStructureProteinsForFamily.join(StudiedCAZyme,StudiedCAZyme.StudiedCAZymesID==StudiedCAZymeProtein.StudiedCAZymesID)
+    getCountStructureProteinsForFamily=getCountStructureProteinsForFamily.where(StudiedCAZyme.Type=='structure')
+    getCountStructureProteinsForFamily=getCountStructureProteinsForFamily.where(StudiedCAZyme.FamilyID==familyID)
+
+    resultsGetCountStructureProteinsForFamily=session.execute(getCountStructureProteinsForFamily)
+    numberStructureSequencesForFamily=resultsGetCountStructureProteinsForFamily.fetchone()[0]
+
     resultsGetProteinSequencesForFamily=session.execute(getProteinSequencesForFamily)
     rows=resultsGetProteinSequencesForFamily.fetchall()
-    print(f'{len(rows)} predicted sequences for family {familyID} were retrieved from the MySQL db.')
+    print(f'There are {numberProteinSequencesForFamily} predicted sequences for family {familyID} in DB, {len(rows)} were retrieved from the MySQL db.')
     if rows:
         with open(fileOutPredictedCazymeProteins, "w") as f:
             for row in rows:
@@ -291,7 +319,7 @@ def getProteinsFasta(familyID=None, password=None):
 
     resultsGetCharacterizedProteinsForFamily=session.execute(getCharacterizedProteinsForFamily)
     rows1=resultsGetCharacterizedProteinsForFamily.fetchall()
-    print(f'{len(rows1)} Characterized sequences for family {familyID} were retrieved from the MySQL db.')
+    print(f'There are {numberCharacterizedSequencesForFamily} predicted sequences for family {familyID} in DB, {len(rows1)} were retrieved from the MySQL db.')
 
     if rows1:
         with open(fileOutCharacterizedCazymeProteins, "w") as f:
@@ -308,7 +336,7 @@ def getProteinsFasta(familyID=None, password=None):
 
     resultsGetStructureProteinsForFamily=session.execute(getStructureProteinsForFamily)
     rows2=resultsGetStructureProteinsForFamily.fetchall()
-    print(f'{len(rows2)} Structure sequences for family {familyID} were retrieved from the MySQL db.')
+    print(f'There are {numberStructureSequencesForFamily} predicted sequences for family {familyID} in DB, {len(rows2)} were retrieved from the MySQL db.')
 
     if rows2:
         with open(fileOutStructureCazymeProteins, "w") as f:

@@ -319,7 +319,7 @@ def getProteinsFasta(familyID=None, password=None):
 
     resultsGetCharacterizedProteinsForFamily=session.execute(getCharacterizedProteinsForFamily)
     rows1=resultsGetCharacterizedProteinsForFamily.fetchall()
-    print(f'There are {numberCharacterizedSequencesForFamily} predicted sequences for family {familyID} in DB, {len(rows1)} were retrieved from the MySQL db.')
+    print(f'There are {numberCharacterizedSequencesForFamily} characterized sequences for family {familyID} in DB, {len(rows1)} were retrieved from the MySQL db.')
 
     if rows1:
         with open(fileOutCharacterizedCazymeProteins, "w") as f:
@@ -336,7 +336,7 @@ def getProteinsFasta(familyID=None, password=None):
 
     resultsGetStructureProteinsForFamily=session.execute(getStructureProteinsForFamily)
     rows2=resultsGetStructureProteinsForFamily.fetchall()
-    print(f'There are {numberStructureSequencesForFamily} predicted sequences for family {familyID} in DB, {len(rows2)} were retrieved from the MySQL db.')
+    print(f'There are {numberStructureSequencesForFamily} structure sequences for family {familyID} in DB, {len(rows2)} were retrieved from the MySQL db.')
 
     if rows2:
         with open(fileOutStructureCazymeProteins, "w") as f:

@@ -70,15 +70,17 @@ with open(fileInDisk) as fhand:
         else:
           data[proteinName]={}
           #Enzyme Code is in the second column
-          ecCode=cols[1].text.strip()
-          if ecCode:
-            data[proteinName]['ec']={}
-            if re.search(r'_or_', ecCode):
-              ecs=ecCode.split('_or_')
-              for ec in ecs:
-                data[proteinName]['ec'][ec]=1
-            else:
-              data[proteinName]['ec'][ecCode]=1
+          ecCodeList=list(cols[1].stripped_strings)
+          if ecCodeList:
+            for ecCode in ecCodeList:
+              # print(ecCode)
+              data[proteinName]['ec'] = {}
+              if re.search(r'_or_', ecCode):
+                ecs = ecCode.split('_or_')
+                for ec in ecs:
+                  data[proteinName]['ec'][ec] = 1
+              else:
+                data[proteinName]['ec'][ecCode] = 1
           #Organism is in the third column
           taxName=cols[2].text.strip()
           taxLink=cols[2].find('a')

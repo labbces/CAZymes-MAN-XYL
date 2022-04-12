@@ -159,6 +159,16 @@ def createDB(password=None):
             {'mariadb_engine':'InnoDB'},
         )
     
+    class StudiedCAZymesEC(Base):
+        __tablename__ = 'StudiedCAZymesEC'
+        ID=Column(Integer, primary_key=True, autoincrement=True)
+        StudiedCAZymesID=Column(Integer)
+        EC = Column(String(20))
+        __table_args__ = (
+            ForeignKeyConstraint(['StudiedCAZymesID'], ['StudiedCAZymes.StudiedCAZymesID']),
+            {'mariadb_engine':'InnoDB'},
+        )
+
     class StudiedCAZymesProteins(Base):
         __tablename__ = 'StudiedCAZymesProteins'
         ID=Column(Integer, primary_key=True, autoincrement=True)
@@ -963,6 +973,7 @@ def populateWebCAZyInfo(password=None,updateNCBITaxDB=False,infoFamily=None,enzy
     StudiedCAZymesProteins = Base.classes.StudiedCAZymesProteins
     ProteinSequences = Base.classes.ProteinSequences
     ProteinReference = Base.classes.ProteinReferences
+    ProteinEC = Base.classes.StudiedCAZymesEC
 
 
     for family in infoFamily:
@@ -1083,13 +1094,22 @@ def populateWebCAZyInfo(password=None,updateNCBITaxDB=False,infoFamily=None,enzy
                             session.commit()
                 if 'References' in enzymes[inx][name].keys():
                     for id in enzymes[inx][name]['References']:
-                        print(f'{StudiedCAZymesID}\t{id}\t{enzymes[inx][name]["References"][id]}')
+                        # print(f'{StudiedCAZymesID}\t{id}\t{enzymes[inx][name]["References"][id]}')
                         checkReferences=select([ProteinReference]).where(ProteinReference.StudiedCAZymesID==StudiedCAZymesID).where(ProteinReference.Reference==id)
                         resultCheckReferences = session.execute(checkReferences)
                         if resultCheckReferences.fetchone() is None:
                             Reference=ProteinReference(StudiedCAZymesID=StudiedCAZymesID, Reference=id, Source=enzymes[inx][name]['References'][id])
                             session.add(Reference)
-                            session.commit()                            
+                            session.commit()
+                if 'ec' in enzymes[inx][name].keys():
+                    for id in enzymes[inx][name]['ec']:
+                        # print(f'{StudiedCAZymesID}\t{id}\t{enzymes[inx][name]["ec"][id]}')
+                        checkProteinEC=select([ProteinEC]).where(ProteinEC.StudiedCAZymesID==StudiedCAZymesID).where(ProteinEC.EC==id)
+                        resultCheckProteinECs = session.execute(checkProteinEC)
+                        if resultCheckProteinECs.fetchone() is None:
+                            ECs=ProteinEC(StudiedCAZymesID=StudiedCAZymesID, EC=id)
+                            session.add(ECs)
+                            session.commit()                                
 
             #print(enzymes[inx][name]['taxID'])
             #print(enzymes[inx])

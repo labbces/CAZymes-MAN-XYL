@@ -81,15 +81,20 @@ with open(fileInDisk) as fhand:
             else:
                 data[proteinName] = {}
                 # Enzyme Code is in the second column
-                ecCode = cols[1].text.strip()
-                if ecCode:
-                    data[proteinName]['ec'] = {}
-                    if re.search(r'_or_', ecCode):
-                        ecs = ecCode.split('_or_')
-                        for ec in ecs:
-                            data[proteinName]['ec'][ec] = 1
-                    else:
-                        data[proteinName]['ec'][ecCode] = 1
+                # pp=list(cols[1].stripped_strings)
+                # print(pp)
+                #ecCode = cols[1].text.strip()
+                ecCodeList=list(cols[1].stripped_strings)
+                if ecCodeList:
+                    for ecCode in ecCodeList:
+                        data[proteinName]['ec'] = {}
+                        if re.search(r'_or_', ecCode):
+                            ecs = ecCode.split('_or_')
+                            for ec in ecs:
+                                data[proteinName]['ec'][ec] = 1
+                        else:
+                            data[proteinName]['ec'][ecCode] = 1
+                        # print(ecCode)
                 # Reference is in the third column
                 referenceLinks = cols[2].find_all('a')
                 # print(referenceLinks)

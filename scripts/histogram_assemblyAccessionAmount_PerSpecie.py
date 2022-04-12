@@ -22,9 +22,9 @@ with open(ptn_file, "r") as ProteinSeqsFile:
     for line in ProteinSeqsFile:
         if line.startswith(">"):
             id4search = re.search(
-                r'>(.*) AssemblyAccession:\[(.*)\];CazyFamily:\[(.*)\];taxID:\[(.*)\];name:\[(.*)\];species:\[(.*)\];Group:\[(.*)\]', line)
-            assemblyAccessionID = str(id4search.group(2))
-            specie = str(id4search.group(6))
+                r'>(.*) Status:\[(.*)\];AssemblyAccession:\[(.*)\];CazyFamily:\[(.*)\];taxID:\[(.*)\];name:\[(.*)\];species:\[(.*)\];Group:\[(.*)\]', line)
+            assemblyAccessionID = str(id4search.group(3))
+            specie = str(id4search.group(7))
 
             if assemblyAccessionID not in assembly_accession:
                 assembly_accession.append(assemblyAccessionID)
@@ -40,7 +40,7 @@ with open(ptn_file, "r") as ProteinSeqsFile:
 
 
 # print(AssemblyAcessionAmount)
-print(f'There are {len(assembly_accession)} unique assembly accessions for the {str(id4search.group(3))} family')
+print(f'There are {len(assembly_accession)} unique assembly accessions for the {str(id4search.group(4))} family')
 
 # Converting dictionary to {specie:[assemblyAcessions Amount]}
 for specie in AssemblyAcessionAmount:
@@ -61,11 +61,11 @@ df.hist(column='AssemblyAccession Amount', bins=bin)
 
 plt.ylabel("Species", size=14,)
 plt.xlabel("Assembly Accession Amount", size=14)
-title = f'Assembly Accession Amount per specie - {str(id4search.group(3))}'
+title = f'Assembly Accession Amount per specie - {str(id4search.group(4))}'
 plt.title(label=title,
           fontdict={'family': 'serif',
                     'color': 'black',
                     'size': 14})
 
-fig_name = f'{str(id4search.group(3))}_AssemblyAccessionDistribuition.png'
+fig_name = f'{str(id4search.group(4))}_AssemblyAccessionDistribuition.png'
 plt.savefig(fname=fig_name, dpi='figure', format='png')

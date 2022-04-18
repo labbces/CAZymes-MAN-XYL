@@ -1,7 +1,6 @@
 # Imports
 import re
 import argparse
-from tokenize import group
 
 # Getting proteins sequences file
 parser = argparse.ArgumentParser()

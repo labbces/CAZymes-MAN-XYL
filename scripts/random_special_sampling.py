@@ -34,7 +34,8 @@ with open(cazy,"r") as handle:
     for seqs in SeqIO.parse(handle, "fasta"): # Biopython 
         try:
             seqs_count += 1
-            assembly_id = seqs.description.split("[")[1].split("]")[0]  # Modificar para deixar mais legivel
+            assembly_id = seqs.description.split("[")[2].split("]")[0]  # Modificar para deixar mais legivel
+            print(assembly_id)
             if assembly_id not in assembly_acession:
                 assembly_acession.append(assembly_id)
         except:
@@ -51,7 +52,7 @@ new_multi_fasta = list()
 with open(cazy,"r") as handle:
     for seqs in SeqIO.parse(handle, "fasta"):
         try:
-            assembly_id = seqs.description.split("[")[1].split("]")[0]
+            assembly_id = seqs.description.split("[")[2].split("]")[0]
             if assembly_id not in choosen_assemblies: continue
             new_multi_fasta.append(seqs)
         except:

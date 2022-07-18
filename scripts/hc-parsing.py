@@ -8,8 +8,8 @@ pd.set_option('display.max_rows', 20)
 # Using argparse to handle variables
 parser = argparse.ArgumentParser()
 parser.add_argument("--input",help="clstr output file from cd-hit",type=str,required=True)
-parser.add_argument("--output",help="output file",type=str,required=True)
-parser.add_argument("--family",help="family name to avoid identificantion names in SGE",type=str,required=False)
+parser.add_argument("--output",help="prefix of output file",type=str,required=True)
+parser.add_argument("--family",help="facilitates identification in stdout",type=str,required=False)
 args = parser.parse_args()
 
 

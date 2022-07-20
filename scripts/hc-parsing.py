@@ -1,4 +1,5 @@
 import argparse
+from pathlib import Path    
 from collections import Counter
 from statistics import mean
 import pandas as pd
@@ -9,9 +10,12 @@ pd.set_option('display.max_rows', 20)
 parser = argparse.ArgumentParser()
 parser.add_argument("--input",help="clstr output file from cd-hit",type=str,required=True)
 parser.add_argument("--output",help="prefix of output file",type=str,required=True)
-parser.add_argument("--family",help="facilitates identification in stdout",type=str,required=False)
+parser.add_argument("--family",help="facilitates identification in stdout",type=str)
 args = parser.parse_args()
 
+# Writing path if don't exist already
+path = Path(args.output)
+path.mkdir(exist_ok=True)
 
 # Reading files safely
 try:
@@ -74,8 +78,8 @@ print(f'Relationship of not studied and studied cluster:{not_studied_cluster}/{c
 
 # Creating a csv file with the information
 tabela = pd.DataFrame({'Sequences': [id.split("+")[0]for id in hash.keys()], 'Cluster': [value -1 for value in hash.values()]})
-tabela.to_csv(f'shortened-seq-cluster_{output}.csv', header=True, index=False, sep="\t")
+tabela.to_csv(f'{path}/shortened-seq-cluster_{family}.csv', header=True, index=False, sep="\t")
 tabela2 = pd.DataFrame({'Sequences': list(hash.keys()), 'Cluster': [value -1 for value in hash.values()]})
-tabela2.to_csv(f'complete-seq-cluster_{output}.csv', header=True, index=False, sep="\t")
+tabela2.to_csv(f'{path}/complete-seq-cluster_{family}.csv', header=True, index=False, sep="\t")
 tabela3 = pd.DataFrame({'cluster_id': cluster_id, 'clenth': clength, 'seq-average': seq_average, 'seq-largest': largest_seq, 'seq-smallest': smallest_seq})
-tabela3.to_csv(f'metadata_{output}.csv', header=True, index=False, sep="\t")
+tabela3.to_csv(f'{path}/metadata_{family}.csv', header=True, index=False, sep="\t")

@@ -58,6 +58,24 @@ for node in t.traverse("postorder"):
         except:
              print("Parsing Error In:", node)
 
+# Loading ECs Data
+ECs = pd.read_csv("ECs/families.ECs.Proteins.txt", sep=";", index_col=1)
+ECs = ECs[ECs['families'] == "GH62"]
+ECs_dict = ECs.to_dict()
+ECs_dict.keys()
+
+# Annotation of ECs Data
+for node in t.traverse("postorder"):
+    if node.is_leaf():
+        try:
+            id = node.name.split("_")[0].strip()
+            if id in ECs_dict['ECs'].keys():   
+               node.add_feature("EC", ECs_dict['ECs'][id])  # add ECs to each leaf
+               print(node.features)
+        except:
+             print("Parsing Error In:", node)
+
+
 #Getting midpoint outgroup for tree and rooting tree
 midpoint_outgroup = t.get_midpoint_outgroup()
 t.set_outgroup(midpoint_outgroup)
@@ -78,7 +96,7 @@ for node in t.get_leaves():
     node.name = node.name.split("_")[0]
 
 # Tree description
-t.describe()
+#t.describe()
 
 # Setting Tree Style and Visualization
 ts = TreeStyle()

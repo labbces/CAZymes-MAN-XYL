@@ -53,8 +53,6 @@ for node in t.traverse("postorder"):
             id = node.name.split("_")[0].strip()
             if id in nt_dict['Cluster'].keys():      
                 node.add_feature("cluster_cdhit", nt_dict['Cluster'][id])
-            else:
-                continue
         except:
              print("Parsing Error In:", node)
 
@@ -75,6 +73,25 @@ for node in t.traverse("postorder"):
         except:
              print("Parsing Error In:", node)
 
+# Loading TreeGubbins Data
+treegubbins = dict()
+with open("rootedt62.csv", "r") as f:
+    for line in f:
+        if not line.startswith("Taxon"):
+                cluster = line.split(",")[1]
+                id = line.split(",")[0].split("Status")[0].strip()[:-1] # remove the last character, ugly but works
+                if cluster not in treegubbins.keys():
+                    treegubbins[id] = cluster
+
+# Annotations of TreeGubbins Data
+for node in t.traverse("postorder"):
+    if node.is_leaf():
+        try:
+            id = node.name.split("_")[0].strip()
+            if id in treegubbins.keys():   
+               node.add_feature("cluster_tg", treegubbins[id])  # add cluster id from tree gubbins to each leaf
+        except:
+             print("Parsing Error In:", node)
 
 #Getting midpoint outgroup for tree and rooting tree
 midpoint_outgroup = t.get_midpoint_outgroup()

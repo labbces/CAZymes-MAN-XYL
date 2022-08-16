@@ -9,13 +9,11 @@ import csv
 parser = argparse.ArgumentParser()
 parser.add_argument(
     "--input", help="clstr output file from cd-hit", type=str, required=True)
-parser.add_argument("--output", help="prefix of output file",
-                    type=str, required=True)
 parser.add_argument("--studiedECs", help="file with EC codes of studied sequences",
                     type=str, required=True)
-parser.add_argument("--predictedECs", help="file with EC codes of studied sequences",
+parser.add_argument("--predictedECs", help="file with EC codes of predicted sequences",
                     type=str, required=True)
-parser.add_argument("--interestECs", help="file with EC codes of studied sequences",
+parser.add_argument("--interestECs", help="file with EC codes of interest",
                     type=str, required=True)
 parser.add_argument(
     "--family", help="facilitates identification in stdout", type=str)
@@ -36,7 +34,7 @@ except:
 
 # Setting Variables
 clstr = args.input
-output = args.output
+
 
 with open(clstr, "r") as parser:
     seqs = {}

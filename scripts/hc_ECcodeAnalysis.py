@@ -7,16 +7,13 @@ import csv
 
 # Using argparse to handle variables
 parser = argparse.ArgumentParser()
-parser.add_argument(
-    "--input", help="clstr output file from cd-hit", type=str, required=True)
-parser.add_argument("--studiedECs", help="file with EC codes of studied sequences",
-                    type=str, required=True)
-parser.add_argument("--predictedECs", help="file with EC codes of predicted sequences",
-                    type=str, required=True)
-parser.add_argument("--interestECs", help="file with EC codes of interest",
-                    type=str, required=True)
-parser.add_argument(
-    "--family", help="facilitates identification in stdout", type=str)
+parser.add_argument("-i", "--input", help="clstr output file from cd-hit hierarchical clustering", type=str, required=True)
+parser.add_argument("-s","--studiedECs", help="file with EC codes of studied sequences",type=str, required=True)
+parser.add_argument("-o","--output", help="path to write file", type=str, required=True)
+parser.add_argument("-p","--predictedECs", help="file with EC codes of predicted sequences",type=str, required=True)
+parser.add_argument("-ic","--interestECs", help="file with EC codes of interest",type=str, required=True)
+parser.add_argument("-f","--family", help="prefix for filename", type=str, required=True)
+
 args = parser.parse_args()
 
 
@@ -190,8 +187,8 @@ for cluster in seqs.keys():
 
 df = pd.DataFrame.from_dict(resultado_detalhado2)
 name = f'{args.family}_ECcode_detailed.csv'
-df.to_csv(name, index=False, header=True)
+df.to_csv(f'{args.output}/name', index=False, header=True)
 
 df = pd.DataFrame.from_dict(final_results)
 name2 = f'{args.family}_clusterInfo.csv'
-df.to_csv(name2, index=False, header=True)
+df.to_csv(f'{args.outptu}/name2', index=False, header=True)

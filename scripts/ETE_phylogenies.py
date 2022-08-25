@@ -1,13 +1,12 @@
 # IMPORTS
 import argparse
+from typing import Text
 from ete3 import Tree, PhyloTree, TreeStyle, ClusterTree, NodeStyle, faces, AttrFace, ProfileFace, TextFace
-from ete3 import NCBITaxa; ncbi = NCBITaxa()
-import matplotlib.pyplot as plt
-from tokenize import group
-from ete3 import Tree, ClusterTree
-import PyQt5
 import pandas as pd
-from pyparsing import matchPreviousExpr
+from annotations import AnnotationOTUs
+from annotations import AnnotationClusterCDHit
+from annotations import AnnotationsECs
+from annotations import AnnotationTreeGubbins
 
 # Using argparse to handle variables
 parser = argparse.ArgumentParser()
@@ -18,87 +17,50 @@ parser.add_argument("--clusterfiles",help="information from clusters",type=str,r
 args = parser.parse_args()
 
 
-# Annotation of OTUs using NCBI
-t = PhyloTree("phylo+teste.tree", format=1, sp_naming_function=None)
+# Loading TreeFile
+#t = PhyloTree("phylo+teste.tree", format=1, sp_naming_function=None)
+t = Tree("phylo+teste.tree", format=1)
 
-for node in t.traverse("postorder"):
-    try:
-        if node.is_leaf():
-            taxid = node.name.split("__")[7]
-            lineage = ncbi.get_lineage(int(taxid))
-            names = ncbi.get_taxid_translator(lineage)
-            OTUs = [names[id] for id in lineage] # se usa o lineage ao inves do rank_names keys para se manter a ordem das OTUs
-            ranks = ncbi.get_rank(lineage)
-            life_structure = {}
-            for i in range(len(OTUs)):
-                life_structure[ranks[lineage[i]]] = OTUs[i]                    
-            for feature,value in life_structure.items():
-                if feature != "no rank":
-                    node.add_feature(feature,value)
-    except:
-        print("Error:", node)
+# Annotation of OTUs using NCBI Taxonomy
+AnnotationOTUs(t)
 
-# Loading CD-HTI Hierarchical Clustering Data
-cltdata = pd.read_csv("shortened-seq-cluster_GH62.csv", sep="\t", index_col=0)
-metadata = pd.read_csv("metadata_GH62.csv", sep="\t")
-not_studied_clt = cltdata.copy()
-unique = metadata['cluster_id'].unique()
-not_studied_clt = not_studied_clt[not_studied_clt['Cluster'].map(lambda x: x in unique)] 
-nt_dict = not_studied_clt.to_dict() # convert cluster data into dictionary
+# Annotations of CD-HTI Hierarchical Clustering Data (treefile, shortened-seq-cluster,metadata)
+#AnnotationClusterCDHit(t,"shortened-seq-cluster_GH62.csv","metadata_GH62.csv")
 
-# Annotation of CD-HTI Hierarchical Clustering Data
-for node in t.traverse("postorder"):
-    if node.is_leaf():
-        try:
-            id = node.name.split("_")[0].strip()
-            if id in nt_dict['Cluster'].keys():      
-                node.add_feature("cluster_cdhit", nt_dict['Cluster'][id])
-        except:
-             print("Parsing Error In:", node)
+#Annotations of ECs Data(treefile, ECs_data)
+#AnnotationsECs(t,"ECs/families.ECs.Proteins.txt")
 
-# Loading ECs Data
-ECs = pd.read_csv("ECs/families.ECs.Proteins.txt", sep=";", index_col=1)
-ECs = ECs[ECs['families'] == "GH62"]
-ECs_dict = ECs.to_dict()
-ECs_dict.keys()
+# Annotations of TreeGubbins Data (treefile, treegubbins_data)
+#AnnotationTreeGubbins(t,"rootedt62.csv")
 
-# Annotation of ECs Data
-for node in t.traverse("postorder"):
-    if node.is_leaf():
-        try:
-            id = node.name.split("_")[0].strip()
-            if id in ECs_dict['ECs'].keys():   
-               node.add_feature("EC", ECs_dict['ECs'][id])  # add ECs to each leaf
-               print(node.features)
-        except:
-             print("Parsing Error In:", node)
+# Setting Node Style
+# nstyle = NodeStyle()
+# nstyle["shape"] = "sphere"
+# nstyle["size"] = 10
+# nstyle["fgcolor"] = "darkred"
+# nstyle["hz_line_type"] = 1
+# nstyle["hz_line_color"] = "#cccccc"
 
-# Loading TreeGubbins Data
-treegubbins = dict()
-with open("rootedt62.csv", "r") as f:
-    for line in f:
-        if not line.startswith("Taxon"):
-                cluster = line.split(",")[1]
-                id = line.split(",")[0].split("Status")[0].strip()[:-1] # remove the last character, ugly but works
-                if cluster not in treegubbins.keys():
-                    treegubbins[id] = cluster
+# for node in t.traverse():
+#     node.set_style(nstyle)
 
-# Annotations of TreeGubbins Data
-for node in t.traverse("postorder"):
-    if node.is_leaf():
-        try:
-            id = node.name.split("_")[0].strip()
-            if id in treegubbins.keys():   
-               node.add_feature("cluster_tg", treegubbins[id])  # add cluster id from tree gubbins to each leaf
-        except:
-             print("Parsing Error In:", node)
+# for node in t.traverse():
+#     try:
+#         if node.EC:
+#             nstyle = NodeStyle()
+#             nstyle["fgcolor"] = "blue"
+#             nstyle["size"] = 600
+#             node.set_style(nstyle)
+#     except:
+#         continue
+        
+
 
 #Getting midpoint outgroup for tree and rooting tree
 midpoint_outgroup = t.get_midpoint_outgroup()
 t.set_outgroup(midpoint_outgroup)
 
 # Handling with double support values
-
 for node in t.traverse("postorder"):
     if not node.is_leaf():
         try:
@@ -106,12 +68,32 @@ for node in t.traverse("postorder"):
             #node.support = float(node.name.split("/")[1])# value of the support using alrt
         except:
             continue
-            
 
-# Setting names equal IDs
-for node in t.get_leaves():
+# Setting Node Styles
+nst1 = NodeStyle()
+nst1["bgcolor"] = "Gold"
+nst2 = NodeStyle()
+nst2["bgcolor"] = "Moccasin"
+nst3 = NodeStyle()
+nst3["bgcolor"] = "DarkOrange"
+
+for node in t.iter_leaves():
     node.name = node.name.split("_")[0]
+    try:
+        if node.superkingdom == "Bacteria":
+            node.set_style(nst1)
+        elif node.superkingdom == "Archaea":
+            node.set_style(nst2)
+        elif node.superkingdom == "Eukaryota":
+            node.set_style(nst3)
+    except:
+        continue
 
+# Adding faces to nodes with phylum information
+for node in t.iter_leaves():
+        name = node.phylum
+        node.add_face(TextFace(name,fsize=20), position="branch-right",column=1)
+      
 # Tree description
 #t.describe()
 
@@ -119,7 +101,12 @@ for node in t.get_leaves():
 ts = TreeStyle()
 ts.show_leaf_name = True
 ts.show_scale = True
+ts.show_branch_length = True
+ts.show_branch_support = True
 ts.mode = "c"
+#ts.arc_start = -180 # 0 degrees = 3 o'clock
+#ts.arc_span = 180
+#ts.root_opening_factor = 1
 t.show(tree_style=ts)
 
 

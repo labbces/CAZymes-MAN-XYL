@@ -7,7 +7,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('-i','--input', help="Treefile",type=str,required=True, metavar="")
 parser.add_argument('-f','--filename', help="prefix of output files",type=str,required=True, metavar="")
 group = parser.add_mutually_exclusive_group(required=True)
-group.add_argument('-n','--ninja', help="newick file from ninja",type=str,metavar="")
+group.add_argument('-n','--ninja', action="store_true",help="newick file from ninja")
 group.add_argument('-iqu','--iqtreefastbootstrap', action="store_true", help="Processe using fastbootstrap")
 group.add_argument('-iqa','--iqtreealrt', action="store_true",help="Processe using alrt")
 args = parser.parse_args()
@@ -46,12 +46,15 @@ ts.show_leaf_name = True
 ts.show_scale = True
 ts.show_branch_length = True
 ts.show_branch_support = True
-t.show(tree_style=ts)
-t.render(f"{args.name}.pdf", tree_style=ts)
-t.render(f"{args.name}.svg", tree_style=ts)
+#t.show(tree_style=ts)
+t.render(f"{args.filename}.pdf", tree_style=ts)
+t.render(f"{args.filename}.svg", tree_style=ts)
 
 # Writing the tree in newick format
-if args.iqu:
-    t.write(format=1, outfile=f"{args.name}_withfastbootstrap.nwk") 
-elif args.iqa:
-    t.write(format=1, outfile=f"{args.name}_withalrt.nwk")
+try:
+    if args.iqu:
+        t.write(format=1, outfile=f"{args.filename}_withfastbootstrap.nwk") 
+    elif args.iqa:
+        t.write(format=1, outfile=f"{args.filename}_withalrt.nwk")
+except:
+    pass

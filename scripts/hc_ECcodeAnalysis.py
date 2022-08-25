@@ -187,8 +187,8 @@ for cluster in seqs.keys():
 
 df = pd.DataFrame.from_dict(resultado_detalhado2)
 name = f'{args.family}_ECcode_detailed.csv'
-df.to_csv(f'{args.output}/name', index=False, header=True)
+df.to_csv(f'{args.output}/{name}', index=False, header=True)
 
 df = pd.DataFrame.from_dict(final_results)
 name2 = f'{args.family}_clusterInfo.csv'
-df.to_csv(f'{args.output}/name2', index=False, header=True)
+df.to_csv(f'{args.output}/{name2}', index=False, header=True)

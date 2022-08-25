@@ -191,4 +191,4 @@ df.to_csv(f'{args.output}/name', index=False, header=True)
 
 df = pd.DataFrame.from_dict(final_results)
 name2 = f'{args.family}_clusterInfo.csv'
-df.to_csv(f'{args.outptu}/name2', index=False, header=True)
+df.to_csv(f'{args.output}/name2', index=False, header=True)

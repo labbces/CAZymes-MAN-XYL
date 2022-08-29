@@ -8,20 +8,20 @@ from annotations import AnnotationClusterCDHit
 
 # Using argparse to handle variables
 parser = argparse.ArgumentParser()
-#parser.add_argument("-t", "--tree", help="Input tree file", type=str, required=True)
-#parser.add_argument("--metadata",help="data from not studied clusters",type=str,required=False)
-#parser.add_argument("--clusterseqs",help="seqs with they representative cluster, output from hc-parsing",type=str,required=False)
-#parser.add_argument("--substrate",help="clusterinfo.csv, information about substrate in cluster",type=str,required=False)
+parser.add_argument("-t", "--tree", help="Input tree file", type=str, required=True)
+parser.add_argument("--metadata",help="data from not studied clusters",type=str,required=False)
+parser.add_argument("--clusterseqs",help="seqs with they representative cluster, output from hc-parsing",type=str,required=False)
+parser.add_argument("--substrate",help="clusterinfo.csv, information about substrate in cluster",type=str,required=False)
 args = parser.parse_args()
 
 # Loading TreeFile
-t = Tree("GH98.tree", format=1)
+t = Tree(args.tree, format=1)
 
 # Annotation of OTUs using NCBI Taxonomy
 AnnotationOTUs(t)
 
 # Annotations of CD-HTI Hierarchical Clustering Data (treefile, shortened-seq-cluster,metadata)
-AnnotationClusterCDHit(t,"shortened-seq-cluster_GH98.csv","metadata_GH98.csv")
+AnnotationClusterCDHit(t,args.clusterseqs,args.metadata)
 
 
 #Getting midpoint outgroup for tree and rooting tree
@@ -37,36 +37,17 @@ for node in t.traverse("postorder"):
         except:
             continue
 
-# Setting Node Styles
-nst1 = NodeStyle()
-nst1["bgcolor"] = "Gold"
-nst2 = NodeStyle()
-nst2["bgcolor"] = "Moccasin"
-nst3 = NodeStyle()
-nst3["bgcolor"] = "DarkOrange"
-
-for node in t.iter_leaves():
-    node.name = node.name.split("_")[0]
-    try:
-        if node.superkingdom == "Bacteria":
-            node.set_style(nst1)
-        elif node.superkingdom == "Archaea":
-            node.set_style(nst2)
-        elif node.superkingdom == "Eukaryota":
-            node.set_style(nst3)
-    except:
-        continue
 
 # Adding faces to nodes with phylum information
 for node in t.iter_leaves():
     try:
-        name = node.phylum
-        node.add_face(TextFace(name,fsize=20), position="branch-right",column=1)
+        node.add_face(TextFace(node.name,fsize=10), position="branch-right",column=1)
+        node.add_face(TextFace(node.phylum,fsize=8), position="branch-right",column=1)
     except:
         continue
 
 # Adding substrate information to nodes
-clusters = pd.read_csv("GH98_clusterInfo.csv", sep=",", index_col=0)
+clusters = pd.read_csv(args.substrate, sep=",", index_col=0)
 substrate = clusters[["Substrate"]].copy()
 substrate = substrate.to_dict()
 
@@ -83,30 +64,54 @@ for node in t.traverse("postorder"):
                 elif substrate["Substrate"][node.cdhit_cluster] == "['Xylan']":
                     node.add_feature("substrate", "Xylan")
                     print(node.substrate)
-                #node.add_feature("substrate", substrate["Substrate"][node.cdhit_cluster])
                 else:
                     continue
                 
         except:
             continue
 
+for node in t.iter_leaves():
+    try:
+        if node.substrate == "Mannan":
+            node.img_style["fgcolor"] = "blue"
+            node.img_style["size"] = 20
+        elif node.substrate == "Xylan":
+            node.img_style["fgcolor"] = "black"
+            node.img_style["size"] = 20
+        elif node.substrate == "both":
+            node.img_style["fgcolor"] = "gray"
+            node.img_style["size"] = 20
+    except:
+        continue
+
+
+for node in t.iter_leaves():
+    try:
+        if node.superkingdom == "Bacteria":
+            node.img_style['bgcolor'] = "Gold"
+        elif node.superkingdom == "Archaea":
+            node.img_style['bgcolor'] = "Moccasin"
+        elif node.superkingdom == "Eukaryota":
+            node.img_style['bgcolor'] = "DarkOrange"
+    except:
+        continue
 
 # Tree description
-#t.describe()
+t.describe()
 
-# Setting Tree Style and Visualization
-# ts = TreeStyle()
-# ts.show_leaf_name = False
-# ts.show_scale = True
-# ts.show_branch_length = True
-# ts.show_branch_support = True
-# ts.mode = "c"
-# #ts.arc_start = -180 # 0 degrees = 3 o'clock
-#ts.arc_span = 180
-#ts.root_opening_factor = 1
-#t.show(tree_style=ts)
+#Setting Tree Style and Visualization
+ts = TreeStyle()
+ts.show_leaf_name = False
+ts.show_scale = True
+ts.show_branch_length = True
+ts.show_branch_support = True
+ts.mode = "c"
+#ts.arc_start = -180 # 0 degrees = 3 o'clock
+ts.arc_span = 180
+ts.root_opening_factor = 1
+t.show(tree_style=ts)
 
-
+# Saving Tree
 # Writing the tree in newick format
 #t.write(format=1, outfile="new_tree.nwk") 
 

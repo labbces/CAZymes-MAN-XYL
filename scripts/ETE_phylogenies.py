@@ -1,6 +1,5 @@
 # IMPORTS
 import argparse
-from typing import Text
 from ete3 import Tree, PhyloTree, TreeStyle, ClusterTree, NodeStyle, faces, AttrFace, ProfileFace, TextFace
 import pandas as pd
 from annotations import AnnotationOTUs
@@ -9,7 +8,7 @@ from annotations import AnnotationClusterCDHit
 # Using argparse to handle variables
 parser = argparse.ArgumentParser()
 parser.add_argument("-t", "--tree", help="Input tree file", type=str, required=True)
-parser.add_argument("-f", "--filename", help="prefix of file output", type=str, required=True)
+parser.add_argument("-f", "--filename", help="prefix of output file", type=str, required=True)
 parser.add_argument("--metadata",help="data from not studied clusters",type=str,required=True)
 parser.add_argument("--clusterseqs",help="seqs with they representative cluster, output from hc-parsing",type=str,required=True)
 parser.add_argument("--substrate",help="clusterinfo.csv, information about substrate in cluster",type=str,required=True)

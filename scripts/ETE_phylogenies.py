@@ -110,9 +110,8 @@ ts.mode = "c"
 ts.arc_span = 180
 ts.root_opening_factor = 1
 #t.show(tree_style=ts)
-t.render(f"{args.filename}.pdf", tree_style=ts)
-t.render(f"{args.filename}.svg", tree_style=ts)
-
+t.render(f"{args.filename}_color_vis.pdf", tree_style=ts)
+t.render(f"{args.filename}_color_vis.svg", tree_style=ts)
 
 # Saving Tree
 # Writing the tree in newick format

@@ -9,9 +9,10 @@ from annotations import AnnotationClusterCDHit
 # Using argparse to handle variables
 parser = argparse.ArgumentParser()
 parser.add_argument("-t", "--tree", help="Input tree file", type=str, required=True)
-parser.add_argument("--metadata",help="data from not studied clusters",type=str,required=False)
-parser.add_argument("--clusterseqs",help="seqs with they representative cluster, output from hc-parsing",type=str,required=False)
-parser.add_argument("--substrate",help="clusterinfo.csv, information about substrate in cluster",type=str,required=False)
+parser.add_argument("-f", "--filename", help="prefix of file output", type=str, required=True)
+parser.add_argument("--metadata",help="data from not studied clusters",type=str,required=True)
+parser.add_argument("--clusterseqs",help="seqs with they representative cluster, output from hc-parsing",type=str,required=True)
+parser.add_argument("--substrate",help="clusterinfo.csv, information about substrate in cluster",type=str,required=True)
 args = parser.parse_args()
 
 # Loading TreeFile
@@ -109,7 +110,10 @@ ts.mode = "c"
 #ts.arc_start = -180 # 0 degrees = 3 o'clock
 ts.arc_span = 180
 ts.root_opening_factor = 1
-t.show(tree_style=ts)
+#t.show(tree_style=ts)
+t.render(f"{args.filename}.pdf", tree_style=ts)
+t.render(f"{args.filename}.svg", tree_style=ts)
+
 
 # Saving Tree
 # Writing the tree in newick format

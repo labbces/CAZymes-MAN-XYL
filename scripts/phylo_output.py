@@ -49,11 +49,11 @@ ts.show_branch_support = True
 #t.show(tree_style=ts)
 try:
     if args.iqultrabootstrap:
-       t.render(f"{args.filename}_withfastbootstrap.nwk.pdf", tree_style=ts)
-       t.render(f"{args.filename}_withfastbootstrap.nwk.svg", tree_style=ts)
+        t.render(f"{args.filename}_withfastbootstrap.pdf", tree_style=ts)
+        t.render(f"{args.filename}_withfastbootstrap.svg", tree_style=ts)
     elif args.iqalrt:
-         t.render(f"{args.filename}_withalrt.nwk.pdf", tree_style=ts)
-         t.render(f"{args.filename}_withalrt.nwk.svg", tree_style=ts)
+        t.render(f"{args.filename}_withalrt.pdf", tree_style=ts)
+        t.render(f"{args.filename}_withalrt.svg", tree_style=ts)
 except:
     pass
 

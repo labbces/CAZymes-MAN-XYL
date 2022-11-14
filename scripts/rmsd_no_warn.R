@@ -9,6 +9,10 @@ install.packages("tidyverse")
 #install.packages("foreach")
 #install.packages("doParallel")
 
+# Removing undesired warnings
+oldw <- getOption("warn")
+options(warn = -1)
+
 #Loading packages
 library(bio3d) 
 library(tibble)
@@ -20,8 +24,9 @@ library(iterpc)
 #library(doParallel)
 
 
+
 #Iterating over the pdb files for each family
-files <- list.files(path="/home/dan/CAZymes-MAN-XYL/grupos/alphafold_gh31", pattern="\\.pdb", full.names = TRUE, recursive=FALSE)
+files <- list.files(path="/home/dan/CAZymes-MAN-XYL/grupos/alphafold_gh115", pattern="\\.pdb", full.names = TRUE, recursive=FALSE)
 #files2 <- list.files(path="/home/dan/CAZymes-MAN-XYL/parsing_pdb/GH95", pattern="\\.pdb", recursive=FALSE)
 
 # Using iterpc package to obtain distinct combinations
@@ -59,6 +64,8 @@ for(i in seq(iterations)) {
 data = tibble(id1 = ids1, id2 = ids2, similarity = similarity)
 
 write.table(data, file = "GH31.csv", sep="\t", row.names=FALSE, col.names = FALSE)
+
+on.exit(options(warn = oldw))
 
 #foreach(x=it) %do% {pdb1 = read.pdb(x[1]); pdb2 = read.pdb(x[2])} %do% #{ rmsd(a=x[1]$xyz, b=x[2]$xyz, fit=TRUE) }
 #foreach(x=it) %do% {print(x[2])}

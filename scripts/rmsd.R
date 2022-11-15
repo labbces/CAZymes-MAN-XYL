@@ -4,6 +4,7 @@
 #install.packages("bio3d", dependencies=TRUE)
 #install.packages("iterpc", dependencies = TRUE)
 #install.packages("tidyverse")
+#install.packages("parallel",dependencies = TRUE)
 #install.packages("argparser", dependencies = TRUE)
 #install.packages("bio3d", repos="http://cran.r-project.org", dependencies=TRUE, lib="/Storage/data2/danilo.brito/CAZymes-MAN-XYL/DB/XylanDatabase")
 #install.packages("iterpc", repos="http://cran.r-project.org", dependencies=TRUE, lib="/Storage/data2/danilo.brito/CAZymes-MAN-XYL/DB/XylanDatabase")
@@ -36,17 +37,17 @@ similarity <- double(0)
 # Looping to get vectors
 for(i in seq(iterations)) {
   combination <-  getnext(J)
-  pdb1 <- read.pdb(combination[1], ATOM.only = TRUE)
+  pdb1 <- read.pdb(combination[1], ATOM.only = TRUE, verbose = FALSE)
   name1 <- strsplit(combination[1], "/")
   name1.1 <- strsplit(name1[[1]][length(name1[[1]])], "\\.")
   name1.2 <- name1.1[[1]][1]
   ids1 <- c(ids1, name1.2)
-  pdb2 <- read.pdb(combination[2], ATOM.only = TRUE)
+  pdb2 <- read.pdb(combination[2], ATOM.only = TRUE, verbose = FALSE)
   name2 <- strsplit(combination[2], "/")
   name2.1 <- strsplit(name2[[1]][length(name1[[1]])], "\\.")
   name2.2 <- name2.1[[1]][1]
   ids2 <- c(ids2, name2.2)
-  return_rmsd = rmsd(a=pdb1$xyz,b=pdb2$xyz, fit=TRUE) 
+  return_rmsd = rmsd(a=pdb1$xyz,b=pdb2$xyz, fit=TRUE,  ncore=3) 
   return_similarity = return_rmsd * -1
   #cat(name1.2, name2.2, return_rmsd, return_similarity,"\n")
   similarity <- c(similarity, return_similarity)
@@ -55,4 +56,4 @@ for(i in seq(iterations)) {
 # Writing Edge List
 data = tibble(id1 = ids1, id2 = ids2, similarity = similarity)
 
-write.table(data, file = "GH115_atomonly.csv", sep="\t", row.names=FALSE, col.names = FALSE)
+write.table(data, file = "GH115_atomonly_nverb_core3.csv", sep="\t", row.names=FALSE, col.names = FALSE)

@@ -12,7 +12,7 @@
 
 #Loading packages
 library(bio3d) 
-library(tibble)
+library(tidyverse)
 library(iterpc)
 #library(argparser)
 #library("bio3d", lib="/Storage/data2/danilo.brito/CAZymes-MAN-XYL/DB/XylanDatabase") 
@@ -54,9 +54,11 @@ for(i in seq(iterations)) {
 
 # Converting distance in similarity
 max_distance_value = max(return_rmsd)
+min_distance_value = min(return_rmsd)
 rmsd_dataframe = tibble(return_rmsd)
-similarity = tibble(apply(rmsd_dataframe, 1, function(x) {max_distance_value - x}))
+#similarity = tibble(apply(rmsd_dataframe, 1, function(x) {max_distance_value - x}))
+similarity = tibble(apply(rmsd_dataframe, 1, function(x) {(x - min_distance_value) / (max_distance_value - min_distance_value)}))
 
 # Writing Edge List
 data = tibble(id1 = ids1, id2 = ids2, similarity)
-write.table(data, file = "GH115_atomonly_nverb_core3_n19_similarity.csv", sep="\t", row.names=FALSE, col.names = FALSE)
+write.table(data, file = "GH115_n19_staggered.csv", sep="\t", row.names=FALSE, col.names = FALSE)

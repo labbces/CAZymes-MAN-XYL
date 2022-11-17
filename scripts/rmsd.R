@@ -14,10 +14,16 @@
 library(bio3d) 
 library(tidyverse)
 library(iterpc)
+library(parallel)
 #library(argparser)
 #library("bio3d", lib="/Storage/data2/danilo.brito/CAZymes-MAN-XYL/DB/XylanDatabase") 
 #library("tibble", lib="/Storage/data2/danilo.brito/CAZymes-MAN-XYL/DB/XylanDatabase")
 #library("iterpc", lib="/Storage/data2/danilo.brito/CAZymes-MAN-XYL/DB/XylanDatabase")
+
+#Setting ncores
+setup_core_value = as.integer(3)
+typeof(setup_core_value)
+setup.ncore(ncore=setup_core_value)
 
 #Iterating over the pdb files for each family
 files <- list.files(path="/home/dan/CAZymes-MAN-XYL/grupos/alphafold_gh115", pattern="\\.pdb", full.names = TRUE, recursive=FALSE)
@@ -47,7 +53,7 @@ for(i in seq(iterations)) {
   name2.1 <- strsplit(name2[[1]][length(name1[[1]])], "\\.")
   name2.2 <- name2.1[[1]][1]
   ids2 <- c(ids2, name2.2)
-  rmsd = rmsd(a=pdb1$xyz,b=pdb2$xyz, fit=TRUE,  ncore=3) 
+  rmsd = rmsd(a=pdb1$xyz,b=pdb2$xyz, fit=TRUE,  ncore=setup_core_value, nseg.scale=setup_core_value) 
   #cat(name1.2, name2.2, return_rmsd, return_similarity,"\n")
   return_rmsd <- c(return_rmsd, rmsd)
 }
@@ -61,4 +67,4 @@ similarity = tibble(apply(rmsd_dataframe, 1, function(x) {(x - min_distance_valu
 
 # Writing Edge List
 data = tibble(id1 = ids1, id2 = ids2, similarity)
-write.table(data, file = "GH115_n19_staggered.csv", sep="\t", row.names=FALSE, col.names = FALSE)
+write.table(data, file = "GH115_scaling_nseg_scale.csv", sep="\t", row.names=FALSE, col.names = FALSE)

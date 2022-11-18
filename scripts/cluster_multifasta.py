@@ -1,6 +1,5 @@
 # IMPORTS
 import argparse
-from calendar import c
 import csv
 from Bio import SeqIO
 
@@ -41,13 +40,17 @@ with open(args.ECcodeInfo, 'r') as csv_file:
                     studied = False
             cluster = cluster_new
 
-print(clusterStatus)
+#print(clusterStatus)
 
 clusterID = {}
 with open(args.clustersinfo, 'r') as csv_file:
     csv_reader = csv.reader(csv_file, delimiter='\t')
     for row in csv_reader:
-        cluster = row[1]
+        try:
+            cluster = int(row[1]) + 1
+            cluster = str(cluster)
+        except:
+            pass
         if cluster in clusterStatus:
             try:
                 clusterID[cluster].append(row[0])

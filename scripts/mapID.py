@@ -32,8 +32,8 @@ except:
     print("File", args.clusternumber, "cannot be open")
 
 # Selecting not studied representative sequences ID
-clusterseqs = pd.read_csv(args.clusterseqs, sep=",", index_col=0)    
-metadata = pd.read_csv(args.metadata, sep="\t")
+clusterseqs = pd.read_csv(args.clusterseqs, sep="\t", index_col=0)    
+metadata = pd.read_csv(args.metadata, sep=",")
 not_studied_clusters = clusterseqs.copy()
 ids = metadata['cluster_id'].unique()
 not_studied_clusters = not_studied_clusters[not_studied_clusters['Cluster'].map(lambda x: x in ids)] 

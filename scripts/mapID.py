@@ -33,7 +33,7 @@ except:
 
 # Selecting not studied representative sequences ID
 clusterseqs = pd.read_csv(args.clusterseqs, sep="\t", index_col=0)    
-metadata = pd.read_csv(args.metadata, sep=",")
+metadata = pd.read_csv(args.metadata, sep="\t")
 not_studied_clusters = clusterseqs.copy()
 ids = metadata['cluster_id'].unique()
 not_studied_clusters = not_studied_clusters[not_studied_clusters['Cluster'].map(lambda x: x in ids)] 
@@ -41,7 +41,7 @@ not_studied_sequences = not_studied_clusters['Cluster'].map(lambda x: x + 1) # a
 nt_studied_seqs_dict = not_studied_sequences.to_dict() # convert cluster data into dictionary
 
 # Selecting substrate information
-cs = pd.read_csv("CE6_clusterInfo.csv", sep=",", index_col=0)
+cs = pd.read_csv(args.substrate, sep=",", index_col=0)
 substrate = cs[["Substrate"]].copy()
 substrate = substrate.to_dict()
 print(substrate)
